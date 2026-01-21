@@ -1,0 +1,183 @@
+---
+title: "Identify Patterns in the Residuals of a Model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Identify Patterns in the Residuals of a Model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}{inputenc}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(hydroState)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+This is a vignette to demonstrate how to identify state shifts in the residuals of a model. The model used in this example is the \href{https://github.com/ThomasWestfall/CQ2}{quick-slow Hubbard Brook C-Q model}, and essentially, the C-Q model simulates daily water quality concentrations. The purpose of this vignette is to take the residuals (error) from the model, and identify where the model over-predicts and under-predicts actual water quality observations. This informs us of when the actual water quality concentration is higher or lower than what could be explained by the model. Effectively, this is the change in concentration per a given unit of streamflow. Details of the methodology are within a manuscript under review:
+
+Westfall, T. G., Peterson, T. J., Lintern, A. & Western, A. W. (in review), ‘Fresher streams after a prolonged drought in Victoria, Australia', Water Resources Research
+
+
+## Load required data
+This example imports a dataframe from the output of the CQ2 model with actual concentration "obs.C" and simulated concentration "sim.C" from the model in units of milligrams per liter (mg/L). Note the "residuals" are also imported and are in natural log space (log("sim.C") - log("obs.C")). Besides the residuals, the only other required columns are a time-step (either: "year", "month", or "day"). Only "year" is required for an annual analysis, "year" and "month" for a monthly analysis, and "year", "month", and "day" for a daily analysis. This example shows a daily and monthly analysis. For reference, the dataframe imported for this example also include catchment average runoff as "flow" and baseflow as "flow.s" in units of millimeters per day (mm/d). 
+
+```r
+# Select gaugeID
+gaugeID = "234201B"
+
+# Load
+Residuals.daily_234201B = hydroState::Residual.daily_234201B
+
+# Check input data
+head(Residuals.daily_234201B)
+
+#>  year month day   residual        flow    sim.C    obs.C      flow.s    dtime  yearmonth
+#> 1993     5  14 -0.2787168 0.007035374 2998.147 3961.851 0.007035374 1993.364 1993-05-01
+#> 1993     5  15 -0.2976464 0.007100299 3045.682 4101.576 0.006778027 1993.367 1993-05-01
+#> 1993     5  16 -0.3351499 0.007723581 3088.122 4317.657 0.006542165 1993.370 1993-05-01
+#> 1993     5  17 -0.3012015 0.007870385 3131.548 4232.229 0.006320192 1993.373 1993-05-01
+#> 1993     5  18 -0.3129623 0.007946491 3174.245 4340.684 0.006110441 1993.375 1993-05-01
+#> 1993     5  19 -0.3955748 0.008211242 3214.283 4773.975 0.005914876 1993.378 1993-05-01
+```
+
+## Calculate residuals (if needed)
+```r
+# Residuals in natural log space
+Residuals.daily_234201B$residuals = log(Residual.daily_234201B$sim.C) - log(Residual.daily_234201B$obs.C)
+```
+
+## Create monthly dataframe (if needed)
+```r
+# Create year-month column
+Residual.monthly_234201B =  Residual.daily_234201B  %>%
+    mutate(yearmonth = lubridate::make_date(year,month))
+
+# Aggregate daily data into monthly data by taking the mean of the residual and sum of flow
+Residual.monthly_234201B = Residual.monthly_234201B %>% group_by(yearmonth = yearmonth) %>%
+    summarize(
+              year = mean(year),
+              residual.count = sum(!is.na(residual)),
+              residual = mean(residual, na.rm = TRUE),
+              flow = sum(flow, na.rm = TRUE),
+              flow.s = sum(flow.s, na.rm = TRUE)
+              )
+              
+# If number of days with residuals in a month is less than 28, remove with setting month residual to NA.
+Residual.monthly_234201B$residual[which(Residual.monthly_234201B$residual.count <28)] = NA
+
+```
+
+# Monthly residual state analysis 
+This builds a one and two state monthly model to evaluate the residuals of the quick-slow C-Q model. 
+```r
+
+## Build model 
+model.monthly.1 = build(input.data = Residual.monthly_234201B,
+                data.transform = 'none',
+                parameters = c('a0','std.a0'),
+                state.shift.parameters = c('a0','std.a0'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,1,1))
+
+model.monthly.2 = build(input.data = Residual.monthly_234201B,
+                data.transform = 'none',
+                parameters = c('a0','std.a0'),
+                state.shift.parameters = c('a0','std.a0'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,2,2))
+```
+
+## Fit both monthly models
+```r
+model.monthly.1 = fit.hydroState(model.monthly.1, pop.size.perParameter = 10, max.generations = 500)
+
+model.monthly.2 = fit.hydroState(model.monthly.2, pop.size.perParameter = 10, max.generations = 500)
+
+```
+## Compare 1-state and 2-state models based on AIC
+The lower AIC in the 2-state indicates sufficient evidence for the existence of 2-states in the series of residuals.
+```r
+get.AIC(model.monthly.1)
+#> [1] 
+
+get.AIC(model.monthly.2)
+#> [1] 
+```
+
+## Evaluate the residual state-shifts
+Set the state names relative to a year in the record using `setInitialYear()` and evaluat the residual states overtime of the monthly 2-state model using `plot.hydroState()`. The year 1991 is selected as the initial year because there is not sufficient streamflow data for 1990 at this site (Bet Bet Creek - 407211).
+
+```r
+# set the reference year to name the states
+model = setInitialYear(model.monthly.2, 1991)
+
+# plot grid plot.. 
+plot(model.monthly.2)
+
+```
+
+![Timeseries plot of annual runoff states from adjusted model](../man/figures/gamma.annual.model.timeseries.407211.png){width=100%}
+
+
+# Daily residual state analysis 
+At first, review relationship between the daily residuals and streamflow. If heteroscedasticity, consider building and fitting a residual state model with variance as a function of streamflow (Option 2 below).
+```r
+# plot Residuals vs. Q
+residual.state.plot(Residual.daily_234201B)
+```
+
+## Build model 
+```r
+# Option 1: Daily analysis that asssumes variance of HMM does not vary with streamflow magnitude
+model.daily = build(input.data = Residual.daily_234201B,
+                data.transform = 'none',
+                parameters = c('a0','std.a0'),
+                state.shift.parameters = c('a0','std.a0'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,2,2))
+                
+
+
+
+# Option 2: Daily analysis that assums variance of HMM is best modeled as a linear function of Q
+model.daily.Q = build(input.data = Residual.daily_234201B,
+                data.transform = 'none',
+                parameters = c('a0','std.a0','std.a1'),
+                state.shift.parameters = c('a0','std.a0','std.a1'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,2,2))
+                
+```
+
+## Fit model
+```r
+model.daily.Q = fit.hydroState(model.daily.Q , pop.size.perParameter = 10, max.generations = 500)
+```
+
+## Evaluate the residual state-shifts
+Set the state names relative to a year in the record using `setInitialYear()` and evaluat the residual states overtime of the monthly 2-state model using `plot.hydroState()`. The year 1991 is selected as the initial year because there is not sufficient streamflow data for 1990 at this site (Bet Bet Creek - 407211).
+
+```r
+# set the reference year to name the states
+model = setInitialYear(model.monthly.2, 1991)
+
+# plot grid plot.. 
+plot(model.monthly.2)
+
+```
+
+![Timeseries plot of annual runoff states from adjusted model](../man/figures/gamma.annual.model.timeseries.407211.png){width=100%}
+
+

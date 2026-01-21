@@ -87,8 +87,8 @@ setMethod(f="setBounds",
                          parameter.names[i]=='mean.winter.a0' || parameter.names[i]=='mean.spring.a0') {
                  # .Object@lower.bound[[parameter.names[i]]] <- -1;
                  # .Object@upper.bound[[parameter.names[i]]] <- 1;
-                .Object@lower.bound[[parameter.names[i]]] <-  -0.5; # -5;# Rhat
-                .Object@upper.bound[[parameter.names[i]]] <- 0.5; # 5; # Rhat
+                .Object@lower.bound[[parameter.names[i]]] <-  -5; # -5;# Rhat
+                .Object@upper.bound[[parameter.names[i]]] <- 5; # 5; # Rhat
               } else if (parameter.names[i]=='mean.a0.amp') {
                 .Object@lower.bound[[parameter.names[i]]] <- 0;
                 .Object@upper.bound[[parameter.names[i]]] <- 1;
@@ -129,7 +129,7 @@ setMethod(f="setBounds",
               } else if (parameter.names[i]=='std.a0' || parameter.names[i]=='std.summer.a0' || parameter.names[i]=='std.autumn.a0' ||
                          parameter.names[i]=='std.winter.a0' || parameter.names[i]=='std.spring.a0') {
                 .Object@lower.bound[[parameter.names[i]]] <- 0.05;
-                .Object@upper.bound[[parameter.names[i]]] <- 0.75; #5; Rhat
+                .Object@upper.bound[[parameter.names[i]]] <- 5; #0.75; Qhat
               } else if (parameter.names[i]=='std.a1') {
                 .Object@lower.bound[[parameter.names[i]]] <-  -5;
                 .Object@upper.bound[[parameter.names[i]]] <- 5;

@@ -154,6 +154,36 @@ select.stateModel <- function(input.data = data.frame(year=c(), flow=c(), precip
   if(!is.character(parameters)){
     stop("'parameters' are not in a character vector")
   }
+ ##############################3
+  # if residual.. do residual state analysis
+  if('residual' %in% colnames(input.data)){
+
+    func = 'RhatModel.homo.normal.linear'
+
+    if(length(parameters) == 3 && all(parameters %in% c('a0','std.a0','std.a1'))){
+
+      state.array = c(length(which(state.shift.parameters == 'a0')) > 0,
+                      length(which(state.shift.parameters == 'std.a0')) > 0,
+                      length(which(state.shift.parameters == 'std.a1')) > 0)
+    }
+
+    if(length(parameters) == 2 && all(parameters %in% c('a0','std.a0'))){
+
+      state.array = c(length(which(state.shift.parameters == 'a0')) > 0,
+                      length(which(state.shift.parameters == 'std.a0')) > 0,
+                      NA)
+    }
+
+
+
+    return(new(func, use.truncated.dist=T, input.data, transition.graph,
+             state.dependent.mean.a0 = state.array[1],
+             state.dependent.mean.trend=NA,
+             state.dependent.std.a0=state.array[2],
+             state.dependent.std.a1=state.array[3]))
+
+  }
+
 
   if(!('a0' %in% parameters && 'a1' %in% parameters && 'std' %in% parameters)){
     stop("'parameters' must contain 'a0', 'a1', 'std'")
@@ -621,6 +651,62 @@ build <- function(input.data = data.frame(year=c(), flow=c(), precip=c()),
   }else if(missing(error.distribution) && length(seasonal.parameters) > 0){
     error.distribution = 'gamma'
   }
+
+  ###### if input is residual.state model, build residual state model
+  if('residual' %in% colnames(input.data)){
+    data.transform = select.transform(func = 'none', input.data)
+
+    # default is varance due to Q
+    if(is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
+
+      stateModel = select.stateModel(input.data,
+                                     parameters = c('a0', 'std.a0', 'std.a1'),
+                                     seasonal.parameters,
+                                     state.shift.parameters =  c('a0', 'std.a0', 'std.a1'),
+                                     error.distribution = error.distribution,
+                                     transition.graph = transition.graph)
+    }
+    if(!is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
+
+      stateModel = select.stateModel(input.data,
+                                     parameters,
+                                     seasonal.parameters,
+                                     state.shift.parameters =  parameters,
+                                     error.distribution = error.distribution,
+                                     transition.graph = transition.graph)
+    }
+
+    if(is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
+
+      stateModel = select.stateModel(input.data,
+                                     parameters = c('a0', 'std.a0', 'std.a1'),
+                                     seasonal.parameters,
+                                     state.shift.parameters,
+                                     error.distribution = error.distribution,
+                                     transition.graph = transition.graph)
+    }
+
+    if(!is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
+
+      stateModel = select.stateModel(input.data,
+                                     parameters,
+                                     seasonal.parameters,
+                                     state.shift.parameters,
+                                     error.distribution = error.distribution,
+                                     transition.graph = transition.graph)
+    }
+
+      # create Markov model
+      Markov = select.Markov(flickering, transition.graph)
+
+      # build default model
+      return(new('hydroState',input.data, data.transform, stateModel, Markov))
+
+  }
+
+  ############
+
+
 
 # If no inputs except input.data, just run default analysis
     if(is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
@@ -1596,6 +1682,100 @@ check <- function(model, n.samples = 100000){
   }
 
 }
+
+#' Plot Residuals vs. Streamflow
+#'
+#' \code{residual.state.plot}
+#'
+#' @description
+#' \code{residual.state.plot} Before running the residual state model, compare the residuals with streamflow to identify heteroscedasticity.
+#'
+#' @details
+#' This provides a plot of the given residuals vs. streamflow. Daily time-step.
+#'
+#' @param input.data data.frame with residuals and streamflow
+#'
+#' @return
+#' A plot with residuals vs. streamflow
+#'
+#' @keywords residual streamflow
+#'
+#'
+#' @export residual.state.plot
+#'
+#' @examples
+#' ##
+#' \donttest{
+#' load(Residual.daily.234201B)
+#' residual.state.plot(input.data = Residual.daily.234201B)
+#'}
+#'
+#'
+#'
+residual.state.plot <- function(input.data=data.frame(residual=c(), flow = c())){
+
+
+  Residual_Q_plot <- ggplot() +
+
+  # Daily residuals
+  geom_point(
+    data = input.data,
+    aes(x = log(flow), y = residual, colour = "Daily"),
+    alpha = 0.25,
+    size = 1
+  ) +
+
+    # # Monthly residuals
+    # geom_point(
+    #   data = Residuals.monthly,
+    #   aes(x = log(flow), y = residual, colour = "Monthly"),
+    #   alpha = 0.6,
+    #   size = 1.6
+    # ) +
+
+    geom_hline(
+      yintercept = 0,
+      linetype = "dashed",
+      colour = "#d7191c"
+    ) +
+
+    scale_colour_manual(
+      name = NULL,
+      values = c(
+        "Daily"   = "black"
+        # "Monthly" = "#fc8d59"
+      )
+    ) +
+
+    coord_cartesian(
+      xlim = c(
+        log(0.005),
+        max(log(input.data$flow), na.rm = TRUE)
+      )
+    ) +
+
+    labs(
+      x = expression(log[e](Q[t])),
+      y = expression(obs~R[t])
+      # caption = gaugeID
+    ) +
+
+    theme_classic() +
+    theme(
+      legend.position = c(0.02, 0.98),
+      legend.justification = c(0, 1),
+      legend.background = element_rect(
+        fill = "white",
+        colour = "grey70"
+      ),
+      legend.key = element_blank()
+   )
+
+  return(Residual_Q_plot)
+
+}
+
+
 
 
 

@@ -40,8 +40,16 @@ setMethod(f="getQhat",signature=c("Qhat.none",'data.frame'),definition=function(
   if (!is.data.frame(data))
     stop('"data" must be a data.frame.')
 
-  data$Qhat.flow <- data$flow
-  data$Qhat.precipitation <- data$precipitation
+  if('precipitation' %in% colnames(data)){
+    data$Qhat.flow <- data$flow
+    data$Qhat.precipitation <- data$precipitation
+  }
+
+  if('residual' %in% colnames(data)){
+    data$Qhat.residual <- data$residual
+    data$Qhat.flow <- data$flow
+  }
+
 
   return(data)
 }

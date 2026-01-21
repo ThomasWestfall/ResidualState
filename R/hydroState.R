@@ -72,8 +72,9 @@ setMethod(f="initialize",signature="hydroState",definition=function(.Object, inp
           # Check the input data has columns 'precipitation' and 'flow' and the 'recipitation has no gaps.
           if (!is.data.frame(input.data))
             stop('The input input.data must be a data frame.')
-          if (!any(names(input.data)=='precipitation'))
-            stop('The input input.data must contain the column "precipitation".')
+          if (!any(names(input.data)=='precipitation') & !any(names(input.data)=='residual')){
+              stop('The input input.data must contain the column "precipitation" or "residual".')
+          }
           if (!any(names(input.data)=='flow'))
             stop('The input input.data must contain the column "flow".')
           if (!any(names(input.data)=='year'))
@@ -91,8 +92,8 @@ setMethod(f="initialize",signature="hydroState",definition=function(.Object, inp
 
           if (any(!is.numeric(input.data$flow)))
             stop('The input input.data$flow must contain only numeric data.')
-          if (any(!is.numeric(input.data$precipitation)))
-            stop('The input input.data$precipitation must contain only numeric data.')
+          if (any(!is.numeric(input.data$precipitation)) & any(!is.numeric(input.data$residual)))
+            stop('The input input.data$precipitation or input.data$residual must contain only numeric data.')
 
           .Object@input.data = input.data
           .Object@Qhat.object = Qhat.object

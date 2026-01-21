@@ -19,7 +19,7 @@ RhatModel.homo.normal.linear <- setClass(
 
   # Set the default values for the slots. (optional)
   prototype=list(
-    input.data = data.frame(year=c(0),month=c(0),flow=c(0)),
+    input.data = data.frame(year=c(0),month=c(0),residual=c(0)),
     nStates = Inf,
     use.truncated.dist=T,
     parameters = new('parameters',c('mean.a0','mean.trend', 'std.a0', 'std.a1'),c(1,1,1,1)),
@@ -40,13 +40,13 @@ setMethod("initialize","RhatModel.homo.normal.linear", function(.Object, use.tru
                                                                 state.dependent.mean.a0=T,
                                                                 state.dependent.mean.trend = NA,
                                                                 state.dependent.std.a0=T,
-                                                                state.dependent.std.a1=0) {
+                                                                state.dependent.std.a1=NA) {
   .Object@input.data <- input.data
   .Object@use.truncated.dist = use.truncated.dist
   .Object@nStates = ncol(transition.graph)
 
   # Set the number of parameter values per parameter name and set up model terms for mean and standard deviation and trend.
-  if (state.dependent.std.a1==0) {
+  if (is.na(state.dependent.std.a1)) {
     if (is.na(state.dependent.mean.trend)) {
       parameter.length <- as.numeric(c(state.dependent.mean.a0, state.dependent.std.a0)) * (.Object@nStates-1) + 1
       .Object@parameters = new('parameters', c('mean.a0', 'std.a0'), parameter.length)
@@ -96,7 +96,7 @@ setMethod(f="getMean",signature=c("RhatModel.homo.normal.linear","data.frame"),d
   if ('mean.trend' %in% names(parameters)) {
     ncols.trend = length(parameters$mean.trend)
   }
-  nrows = length(data$Qhat.flow);
+  nrows = length(data$Qhat.residual);
   ncols.max = max(c(ncols.a0, ncols.trend))
 
   if (ncols.max > .Object@nStates)
@@ -148,21 +148,21 @@ setMethod(f="getVariance",signature=c("RhatModel.homo.normal.linear","data.frame
   parameters = getParameters(.Object@parameters)
 
   ncols.a0 = length(parameters$std.a0)
-  nrows = length(data$Qhat.flow);
+  nrows = length(data$Qhat.residual);
 
   if ('std.a1' %in% names(parameters)){
     ncols.a1 = length(parameters$std.a1)
-    nrows = length(data$Qhat.precipitation);
+    nrows = length(data$Qhat.flow);
   } else {
     ncols.a1=0
   }
 
-  # Get variance of the Qhat # flow is residuals and precipitation is flow,
-  Qhat.var = var(data$Qhat.flow, na.rm=T)
+  # Get variance of the Qhat
+  Qhat.var = var(data$Qhat.residual, na.rm=T)
 
   if (ncols.a1 >0){
     a0.est = Qhat.var * matrix(rep(parameters$std.a0,each=nrows),nrows,.Object@nStates) +
-      matrix(rep(parameters$std.a1,each=nrows),nrows,.Object@nStates) * data$Qhat.precipitation;
+      matrix(rep(parameters$std.a1,each=nrows),nrows,.Object@nStates) * data$Qhat.flow;
   }else{
     a0.est = Qhat.var * matrix(rep(parameters$std.a0,each=nrows),nrows,.Object@nStates)
   }
@@ -183,7 +183,7 @@ setMethod(f="getEmissionDensity",
             # print('getEmissionDensity')
             # browse()
             # Check Qhat is in data
-            if (!any(names(data)=="Qhat.flow"))
+            if (!any(names(data)=="Qhat.residual"))
               stop('Input "data" must be a a data frame with a variable named "Qhat.flow".')
 
             # if (!any(names(data)=="Qhat.precipitation"))
@@ -239,7 +239,7 @@ setMethod(f="getEmissionDensity",
               }
             } else {
               for (i in 1:.Object@nStates) { # 'a' is the lower limit of the truncated normal distribution, making -Inf for residual analysis
-                P[,i] = dtruncnorm(data$Qhat.flow, a=-Inf, mean=markov.mean[,i], sd=markov.stds[,i])
+                P[,i] = dtruncnorm(data$Qhat.residual, a=-Inf, mean=markov.mean[,i], sd=markov.stds[,i])
                 # print("data$Qhat.C")
                 # print(head(data$Qhat.C))
                 # print('dtruncnorm P[,i]')
@@ -266,8 +266,8 @@ setMethod(f="getDistributionPercentiles",
               stop('Input "data" must be a a data frame.')
 
             # Check Qhat is in data
-            if (!any(names(data)=="Qhat.flow"))
-              stop('Input "data" must be a a data frame with a variable named "Qhat.flow".')
+            if (!any(names(data)=="Qhat.residual"))
+              stop('Input "data" must be a a data frame with a variable named "Qhat.residual".')
 
             # Get the moments
             markov.mean = getMean(.Object, data)

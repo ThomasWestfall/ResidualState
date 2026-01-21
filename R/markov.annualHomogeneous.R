@@ -248,11 +248,17 @@ setMethod(f="getLogLikelihood", signature=c("markov.annualHomogeneous","data.fra
             nStates = getNumStates(.Object)
 
             # Check required fields exist
-            if (!any(names(data)=='Qhat.flow'))
-              stop('"data" must be a data.frame with the field "Qhat.flow".')
+            if (any(names(data)=='Qhat.flow') & any(names(data)=='Qhat.precipitation')){
 
-            # Built filter for non NAs.
-            filt <- is.finite(data$Qhat.flow)&is.finite(data$Qhat.precipitation)
+              # Built filter for non NAs.
+              filt <- is.finite(data$Qhat.flow)&is.finite(data$Qhat.precipitation)
+            }
+
+            if (any(names(data)=='Qhat.residual')){
+              filt <- is.finite(data$Qhat.residual)
+            }
+
+
 
             # Handle 1 state model.
             if (nStates==1) {
@@ -341,7 +347,14 @@ setMethod(f="getLogForwardProbabilities", signature=c("markov.annualHomogeneous"
             nStates = getNumStates(.Object)
 
             # Built filter for non NAs.
-            filt <- !is.na(data$Qhat.flow)
+            if (any(names(data)=='Qhat.flow') & any(names(data)=='Qhat.precipitation')){
+              filt <- !is.na(data$Qhat.flow)
+            }
+
+            if (any(names(data)=='Qhat.residual')){
+              filt <- !is.na(data$Qhat.residual)
+            }
+
 
             # Handle 1 state model.
             #if (nStates==1) {
@@ -389,7 +402,13 @@ setMethod(f="getLogBackwardProbabilities", signature=c("markov.annualHomogeneous
             nStates = getNumStates(.Object)
 
             # Built filter for non NAs.
-            filt <- !is.na(data$Qhat.flow)
+            if (any(names(data)=='Qhat.flow') & any(names(data)=='Qhat.precipitation')){
+              filt <- !is.na(data$Qhat.flow)
+            }
+
+            if (any(names(data)=='Qhat.residual')){
+              filt <- !is.na(data$Qhat.residual)
+            }
 
             # Handle 1 state model.
             #if (nStates==1) {
