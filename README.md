@@ -8,7 +8,7 @@ Westfall, T. G., Peterson, T. J., Lintern, A. & Western, A. W. (in review), ‘F
 
 The figure is an example of the results below. At times, the C-Q model over-predicts suggesting observed stream salinity is "fresher" than expected, and at other times, under-predicts suggesting observed stream salinity is "saltier" than expected. 
 
-![Grid plot of monthly residual states](../man/figures/residual.state.png){width=100%}
+![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.state.png){width=100%}
 
 ### Install ResidualState and add a few additional R-packages
 ```r
@@ -149,7 +149,7 @@ plot(model.monthly.2, state.grid = TRUE)
 ```
 This produces a grid plot with the states shown over time. Given this is for a residual time series analysis, the states indicated where the C-Q model overestimated and underestimated observations. The 'low' state indicates where residuals are lower (more negative) than what the C-Q model estimated, so an under estimation. The 'normal' state indicates where residuals are 'higher' than what the C-Q model estimated, so an over estimation. This grid plot can be re-plotted to reflect a more informative meaning of these residual states.
 
-![Grid plot of monthly residual states](../man/figures/grid.plot.png){width=100%}
+![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/grid.plot.png){width=100%}
 
 ## Tile plot of saltier and fresher states over time
 Since the C-Q model explained stream salinity (EC) concentration as a function of streamflow, the residuals represent where stream salinity (EC) concentration is lower or higher, independent of streamflow. The state names can then be conveniently renamed to "fresher" to indicate when the stream is "fresher" (less salty) than expected and "saltier" (more salty) than expected for a given streamflow.
@@ -198,4 +198,4 @@ ggplot(model.states, aes(x = pairdate, y = Year, fill = `State Name`)) +
 
 ```
 
-![Grid plot of monthly residual states](../man/figures/residual.state.png){width=100%}
+![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.state.png){width=100%}
