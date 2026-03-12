@@ -798,6 +798,7 @@ setMethod(f="viterbi",signature=c("hydroState","missing","logical","missing","mi
             return(states)
           }
 )
+
 setMethod(f="viterbi",signature=c("hydroState","missing","logical","numeric","numeric","character"),
           definition=function(.Object, data, do.plot=T, plot.percentiles = c(0.05, 0.5, 0.95), plot.yearRange=numeric(),plot.options = c("A","B","C","D"))
 {
@@ -830,7 +831,7 @@ setMethod(f="viterbi",signature=c("hydroState","missing","logical","missing","mi
           }
 )
 setMethod(f="viterbi",signature=c("hydroState","missing","logical","numeric","numeric","missing"),
-          definition=function(.Object, data, do.plot=T, plot.percentiles = c(0.05, 0.5, 0.95), plot.yearRange=numeric(),plot.options = c("A","B","C","D"))
+          definition=function(.Object, data, do.plot=T, plot.percentiles = c(0.05, 0.5, 0.95), plot.yearRange=numeric(),plot.options = c("A","B","C","D","grid"))
           {
             if (!validObject(.Object))
               stop('The model parameters produced an INVALID MODEL.')
@@ -845,7 +846,7 @@ setMethod(f="viterbi",signature=c("hydroState","missing","logical","numeric","nu
           }
 )
 
-
+#' @export viterbi
 setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric","numeric","character"),
           definition=function(.Object, data, do.plot=T, plot.percentiles = c(0.05, 0.5, 0.95), plot.yearRange=numeric(),plot.options = c())
           {
@@ -1038,11 +1039,14 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
               # Get the conditional probabilities.
               emissionProbs = getEmissionDensity(.Object@QhatModel.object, data, NA)
-              state.probs = getConditionalStateProbabilities(.Object@markov.model.object, data[filt,], emissionProbs[filt,])
+              state.probs = getConditionalStateProbabilities(.Object@markov.model.object, data[filt,], matrix(data = emissionProbs[filt,],nrow = NROW(data[filt,]), ncol = nStates))
+
+              #get state labels
+              state.names = .Object@state.labels
 
               # Collate returned data.
               if (is.vector(obsDates)) {
-                results <- matrix(NA,length(filt), 9+2*nStates)
+                results <- matrix(NA,length(filt), 10+2*nStates)
                 results[,1] <- obsDates.withNAs
                 results[filt,2] <-viterbiPath
                 results[,3] <-data.withNAs$dep.variable
@@ -1053,9 +1057,11 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                                        paste('Viterbi dep.variable -',plot.percentiles*100,'%ile',sep=''),
                                        paste('Normal State dep.variable -',plot.percentiles*100,'%ile',sep=''),
                                        paste('Conditional Prob.-',.Object@state.labels,sep=''),
-                                       paste('Emission Density-',.Object@state.labels,sep=''))
+                                       paste('Emission Density-',.Object@state.labels,sep=''),'State Name')
+                results[filt, 10+2*nStates] = .Object@state.labels[results[filt,'Viterbi State Number']]
+
               } else {
-                results <- matrix(NA,length(filt), 10+2*nStates)
+                results <- matrix(NA,length(filt), 11+2*nStates)
                 results[,1:2] <- obsDates.withNAs
                 results[filt,3] <-viterbiPath
                 results[,4] <-data.withNAs$dep.variable
@@ -1066,23 +1072,26 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                                        paste('Viterbi dep.variable -',plot.percentiles*100,'%ile',sep=''),
                                        paste('Normal State dep.variable -',plot.percentiles*100,'%ile',sep=''),
                                        paste('Conditional Prob.-',.Object@state.labels,sep=''),
-                                       paste('Emission Density-',.Object@state.labels,sep=''))
+                                       paste('Emission Density-',.Object@state.labels,sep=''),'State Name')
+                results[filt, 11+2*nStates] = .Object@state.labels[results[filt,'Viterbi State Number']]
               }
 
             } else {
               # Collate returned data.
               if (is.vector(obsDates)) {
-                results <- matrix(NA,length(filt), 3)
+                results <- matrix(NA,length(filt), 4)
                 results[,1] <- obsDates
                 results[filt,2] <-viterbiPath[filt]
                 results[,3] <-data$dep.variable
-                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable')
+                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable','State Name')
+                results[filt, 4] = .Object@state.labels[results['Viterbi State Number']]
               } else {
-                results <- matrix(NA,length(filt), 4)
+                results <- matrix(NA,length(filt), 5)
                 results[,1:2] <- obsDates
                 results[filt,3] <-viterbiPath[filt]
                 results[,4] <-data$dep.variable
-                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. dep.variable')
+                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. dep.variable','State Name')
+                results[filt, 5] = .Object@state.labels[results[filt,'Viterbi State Number']]
               }
             }
 
@@ -1118,7 +1127,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
               # Derive a matrix for the start and end of each bar for the plotting of the range in the percentiles
               line.matrix <- cbind(viterbi.est[,1], viterbi.est[,3])
-              flow.line.matrix <- cbind(dep.viterbi.est[,1], dep.viterbi.est[,3])
+              dep.line.matrix <- cbind(dep.viterbi.est[,1], dep.viterbi.est[,3])
 
               # Get input grapics settings
               op <- par(no.readonly = T)
@@ -1143,7 +1152,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
 
               # Calc axis limits.
-              ylim.dep.variable <- c(0, ceiling(max( c(max(data$dep.variable,na.rm=T),max(dep.variable.viterbi.est,na.rm=T)))))
+              ylim.dep.variable <- c(0, ceiling(max( c(max(data$dep.variable,na.rm=T),max(dep.viterbi.est,na.rm=T)))))
               ylim.ind.variable.max = max(ylim.dep.variable)*3
               ylim.ind.variable <- c(-ylim.ind.variable.max,0)
 
@@ -1166,241 +1175,310 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 plot.type = "s"
               }
 
-              if("A" %in% plot.options){
-                if(tail(plot.options, n=1) =="A"){
-                  par(mar = c(4,5,0.2,5))
-                }
-                # Plot obs precip
+              if(!("grid" %in% plot.options)){
 
-                pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, .Object@input.data$ind.variable), interval = plot.units)
-                if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
-                  if(with(rle(data$year), max(lengths)) <= 4){
-                    pframe$.Object.input.data.ind.variable = zoo::na.approx(object = replace(pframe$.Object.input.data.ind.variable, is.na(pframe$.Object.input.data.ind.variable), NA), maxgap = 2)
-                  }
-                }
+                if("A" %in% plot.options){
 
-                plot(pframe, type="s",col='grey', lwd=1,
-                     xlim=xlim, xlab='', ylab='', main='', xaxt='n')
-                mtext("Independent Variable.",side=2,line=3, cex = 0.7)
-                mtext(paste("[mm/",plot.units,"]",sep=''),side=2,line=2, cex=0.6)
+                  # # Plot only A if independent variable
+                  # if(any(names(data) == "ind.variable")){
 
-                xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
-                abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
-                if(tail(plot.options, n=1) =="A"){
-                  axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
-                  mtext('Year',side=1,line=3)
-                }
-                grid(NA,NULL)
-                plot.range=par("usr")
-                text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
-              }
+                    if(tail(plot.options, n=1) =="A"){
+                      par(mar = c(4,5,0.2,5))
+                    }
+                    # Plot obs precip
 
-              if("B" %in% plot.options){
-                if(tail(plot.options, n=1) =="B"){
-                  par(mar = c(4,5,0.2,5))
-                }
-
-                # Plot obs flow
-                pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data.withNAs$dep.variable), interval = plot.units)
-                if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
-                  if(with(rle(data$year), max(lengths)) <= 4){
-                    pframe$data.withNAs.dep.variable = zoo::na.approx(object = replace(pframe$data.withNAs.dep.variable, is.na(pframe$data.withNAs.dep.variable), NA), maxgap = 2)
-                  }
-                }
-
-                plot(pframe, type="l", col='grey', lwd=1, ylim=ylim.dep.variable, xlim=xlim,
-                     xlab='', ylab='',xaxt='n')
-                # ryticks.min = signif(1.2*max(data$precipitation,na.rm=T),1)
-                # ryticks = seq(-ryticks.min, 0, by=signif(ryticks.min/2,1))
-                # print(-1*(data$precipitation))
-                # twoord.plot(obsDates.asISO, data$flow,
-                #             obsDates.asISO, -1*(data$precipitation),
-                #             lylim=ylim.flow,rylim= ylim.precip,type=c("l","s"),
-                #             xlab="Year", ylab=paste("Flow [mm/",plot.units,"]",sep=''),rylab=paste("Precip [mm/",plot.units,"]",sep=''),
-                #             lytickpos=seq(0,max(ylim.flow), by=signif(max(ylim.flow)/5,1)), rytickpos=ryticks,
-                #             lcol='black',rcol='blue')
-
-
-
-                # Plot Markov states as boxes
-                for (i in 1:nQhat) {
-                  points(obsDates.asISO[i], dep.viterbi.est[i,2],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
-                  lines(rep(obsDates.asISO[i],2), dep.line.matrix[i,],col=state.colours[viterbiPath[i]], lwd=1)
-
-                  # Plot the normal flow in years when the Viterbi state is not normal.
-                  if (!index.dep.normal[i]) {
-                    points(obsDates.asISO[i], dep.normal.est[i,2],col=state.colours.all[3], bg=state.colours.all[3], pch=1)
-                    lines(rep(obsDates.asISO[i],2), c(dep.normal.est[i,1],dep.normal.est[i,3]),col=state.colours.all[3], lwd=1, lty=1)
-                  }
-                }
-
-
-                # Add axis labels and legend
-                mtext("Dependent Variable",side=2,line=3, cex = 0.7)
-                mtext(paste("[mm/",plot.units,"]"),side=2,line=2, cex=0.6)
-                #mtext('Year',side=1,line=2)
-                #legend('topleft', legend=.Object@state.labels, pch=21, col=state.colours, pt.bg=state.colours, xjust=0)
-                xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
-                abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
-                if(tail(plot.options, n=1) =="B"){
-                  axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
-                  mtext('Year',side=1,line=3)
-                }
-                grid(NA,NULL)
-
-                if(tail(plot.options, n=1) =="B"){
-                  legend('topleft', legend=c('Obs. dep.variable',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
-                         lty=c(1,1,1,1),lwd=1,pch=c(NA,21,21,1), col=c('grey',state.colours,state.colours.all[3]),
-                         pt.bg=c(NA,state.colours,NA), xjust=0, cex=1.3, bg='transparent')
-                }else{
-                  legend('topleft', legend=c('Obs. flow',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
-                         lty=c(1,1,1,1),lwd=1,pch=c(NA,21,21,1), col=c('grey',state.colours,state.colours.all[3]),
-                         pt.bg=c(NA,state.colours,NA), xjust=0, cex=1.1, bg='transparent')
-                }
-
-                plot.range=par("usr")
-                text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
-              }
-
-              if("C" %in% plot.options){
-                if(tail(plot.options, n=1) =="C"){
-                  par(mar = c(4,5,0.2,5))
-                }
-                # Calc axis limits.
-                ylim.qhat <- c(floor(min( c(min(data$Qhat.dep.variable,na.rm=T),min(viterbi.est,na.rm=T)))) ,
-                               ceiling(max( c(max(data$Qhat.dep.variable,na.rm=T),max(viterbi.est,na.rm=T)))))
-
-                # Plot obs Qhat
-                pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data$Qhat.dep.variable), interval = plot.units)
-                if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
-                  if(with(rle(data$year), max(lengths)) <= 4){
-                    pframe$data.Qhat.dep.variable = zoo::na.approx(object = replace(pframe$data.Qhat.dep.variable, is.na(pframe$data.Qhat.dep.variable), NA), maxgap = 2)
-                  }
-                }
-
-                plot(pframe, type="l",col='grey', lwd=1,
-                     ylim=ylim.qhat, xlim=xlim, xlab='', ylab='',xaxt='n')
-
-                # Plot Markov states as boxes
-                for (i in 1:nQhat) {
-                  points(obsDates.asISO[i], viterbi.est[i,2],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
-                  lines(rep(obsDates.asISO[i],2), line.matrix[i,],col=state.colours[viterbiPath[i]], lwd=1)
-                }
-
-                # Add axis labels
-                mtext("Transformed dep.variable",side=2,line=3, cex = 0.7)
-                mtext(paste("[f(mm) /",plot.units,"]"),side=2,line=2, cex=0.6)
-                # mtext('Year',side=1,line=2)
-                xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
-                abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
-                if(tail(plot.options, n=1) =="C"){
-                  axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
-                  mtext('Year',side=1,line=3)
-                }
-                grid(NA,NULL)
-
-                if(tail(plot.options, n=1) =="C"){
-                  legend('bottomleft', legend=c('Obs. flow',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
-                         lty=c(1,1,1,1),lwd=1,pch=c(NA,21,21,1), col=c('grey',state.colours,state.colours.all[3]),
-                         pt.bg=c(NA,state.colours,NA), xjust=0, cex=1.3, bg='transparent')
-                }
-
-                plot.range=par("usr")
-                text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
-              }
-
-              # Plot the cummulative rainfall residual.
-              #--------------
-
-              # # Calculate the means and residuals
-              # if (plot.units == 'yr') {
-              #   P.mean = mean(data$precipitation)
-              #   P.resid = data$precipitation - P.mean;
-              # } else {
-              #   P.mean = rep(NA,length(.Object@QhatModel.object@subAnnual.Monthly.Steps))
-              #   P.resid = rep(NA, length(data$precipitation))
-              #   for (i in 1:length(.Object@QhatModel.object@subAnnual.Monthly.Steps)) {
-              #     filt = data$month == .Object@QhatModel.object@subAnnual.Monthly.Steps[i]
-              #     P.mean[i] =  mean(data$precipitation[filt])
-              #     P.resid[filt] = data$precipitation[filt] - P.mean[i]
-              #   }
-              # }
-              #
-              # # # Plot the residuals
-              # # plot(obsDates.asISO, P.resid,type='p',xlim=xlim, col='white', bg='white', pch=21, xlab='', ylab='')
-              # # for (i in 1:nQhat) {
-              # #   points(obsDates.asISO[i], P.resid[i],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
-              # # }
-              # # lines(obsDates.asISO, rep(0,length(obsDates.asISO)),col='grey')
-              # # mtext("Rainfall residual [mm]",side=2,line=3)
-              # # mtext('Year',side=1,line=2)
-              #
-              # # Calculate the cumulative residuals.
-              # P.cumResid = cumsum(P.resid)
-              #
-              # # Plot the cumm residuals
-              # plot(obsDates.asISO, P.cumResid, type='l',col='grey', lwd=1, xlim=xlim, xlab='', ylab='',xaxt='n')
-              # abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
-              # grid(NA,NULL)
-              # legend('topright', legend=c('Cum. residual ',.Object@state.labels),
-              #        lty=c(1,NA,NA),pch=c(NA,21,21), col=c('grey',state.colours),
-              #        pt.bg=c(NA,state.colours), xjust=0, cex=1.5, bg='white')
-              #
-              # # Colour the points by the Viterbi state.
-              # for (i in 1:nQhat) {
-              #   points(obsDates.asISO[i], P.cumResid[i],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
-              # }
-              # mtext("Cum. rainfall resid.",side=2,line=3)
-              # mtext(paste("[mm]"),side=2,line=2, cex=0.85)
-              # plot.range=par("usr")
-              # text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="D", font=1, cex=2,pos=1)
-
-              if("D" %in% plot.options){
-                if(tail(plot.options, n=1) =="D"){
-                  par(mar = c(4,5,0.2,5))
-                }
-                # Plot the conditional state probability for each state
-
-                # Get the conditional probabilities.
-                emissionProbs = getEmissionDensity(.Object@QhatModel.object, data, NA)
-                state.probs = getConditionalStateProbabilities(.Object@markov.model.object, data[filt,], emissionProbs[filt,])
-
-                # Plot bar graph
-                # par(mar = c(4,5,0.2,5))
-                pframe = padr::pad(data.frame(obsDates.asISO, state.probs[1,]), interval = plot.units)
-                if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
-                  if(with(rle(data$year), max(lengths)) <= 4){
-                    pframe$state.probs.1... = zoo::na.approx(object = replace(pframe$state.probs.1..., is.na(pframe$state.probs.1...), NA), maxgap = 2)
-                  }
-                }
-                plot(pframe, type = 'l', xlim=xlim, col=state.colours[1],
-                     ylim=c(0,1),xlab='', ylab='', lwd=1, xaxt='n')
-                if (nStates>1) {
-                  for ( i in 2:nStates) {
-                    pframe = padr::pad(data.frame(obsDates.asISO, state.probs[i,]), interval = plot.units)
+                    pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, .Object@input.data$ind.variable), interval = plot.units)
                     if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
                       if(with(rle(data$year), max(lengths)) <= 4){
-                        pframe$state.probs.i... = zoo::na.approx(object = replace(pframe$state.probs.i..., is.na(pframe$state.probs.i...), NA), maxgap = 2)
+                        pframe$.Object.input.data.ind.variable = zoo::na.approx(object = replace(pframe$.Object.input.data.ind.variable, is.na(pframe$.Object.input.data.ind.variable), NA), maxgap = 2)
                       }
                     }
-                    lines(pframe, col=state.colours[i])
-                  }
-                }
-                mtext("State Prob.",side=2,line=3, cex = 0.7)
-                mtext(paste("[-]"),side=2,line=2, cex=0.6)
 
-                xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
-                if(tail(plot.options, n=1) =="D"){
-                  axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
-                  mtext('Year',side=1,line=3)
+                    plot(pframe, type="s",col='grey', lwd=1,
+                         xlim=xlim, xlab='', ylab='', main='', xaxt='n')
+                    mtext("Independent Variable.",side=2,line=3, cex = 0.7)
+                    mtext(paste("[XX/",plot.units,"]",sep=''),side=2,line=2, cex=0.6)
+
+                    xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
+                    abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
+                    if(tail(plot.options, n=1) =="A"){
+                      axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
+                      mtext('Year',side=1,line=3)
+                    }
+                    grid(NA,NULL)
+                    plot.range=par("usr")
+                    text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
+                  }
+
+
+
+                if("B" %in% plot.options){
+                  if(tail(plot.options, n=1) =="B"){
+                    par(mar = c(4,5,0.2,5))
+                  }
+
+                  # Plot obs flow
+                  pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data.withNAs$dep.variable), interval = plot.units)
+                  if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                    if(with(rle(data$year), max(lengths)) <= 4){
+                      pframe$data.withNAs.dep.variable = zoo::na.approx(object = replace(pframe$data.withNAs.dep.variable, is.na(pframe$data.withNAs.dep.variable), NA), maxgap = 2)
+                    }
+                  }
+
+                  plot(pframe, type="l", col='grey', lwd=1, ylim=ylim.dep.variable, xlim=xlim,
+                       xlab='', ylab='',xaxt='n')
+                  # ryticks.min = signif(1.2*max(data$precipitation,na.rm=T),1)
+                  # ryticks = seq(-ryticks.min, 0, by=signif(ryticks.min/2,1))
+                  # print(-1*(data$precipitation))
+                  # twoord.plot(obsDates.asISO, data$flow,
+                  #             obsDates.asISO, -1*(data$precipitation),
+                  #             lylim=ylim.flow,rylim= ylim.precip,type=c("l","s"),
+                  #             xlab="Year", ylab=paste("Flow [mm/",plot.units,"]",sep=''),rylab=paste("Precip [mm/",plot.units,"]",sep=''),
+                  #             lytickpos=seq(0,max(ylim.flow), by=signif(max(ylim.flow)/5,1)), rytickpos=ryticks,
+                  #             lcol='black',rcol='blue')
+
+
+
+                  # Plot Markov states as boxes
+                  for (i in 1:nQhat) {
+                    points(obsDates.asISO[i], dep.viterbi.est[i,2],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
+                    lines(rep(obsDates.asISO[i],2), dep.line.matrix[i,],col=state.colours[viterbiPath[i]], lwd=1)
+
+                    # Plot the normal flow in years when the Viterbi state is not normal.
+                    if (!index.dep.normal[i]) {
+                      points(obsDates.asISO[i], dep.normal.est[i,2],col=state.colours.all[3], bg=state.colours.all[3], pch=1)
+                      lines(rep(obsDates.asISO[i],2), c(dep.normal.est[i,1],dep.normal.est[i,3]),col=state.colours.all[3], lwd=1, lty=1)
+                    }
+                  }
+
+
+                  # Add axis labels and legend
+                  mtext("Dependent Variable",side=2,line=3, cex = 0.7)
+                  mtext(paste("[XX/",plot.units,"]"),side=2,line=2, cex=0.6)
+                  #mtext('Year',side=1,line=2)
+                  #legend('topleft', legend=.Object@state.labels, pch=21, col=state.colours, pt.bg=state.colours, xjust=0)
+                  xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
+                  abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
+                  if(tail(plot.options, n=1) =="B"){
+                    axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
+                    mtext('Year',side=1,line=3)
+                  }
+                  grid(NA,NULL)
+
+                  if(tail(plot.options, n=1) =="B"){
+                    legend('topleft', legend=c('Obs. dep.variable',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
+                           lty=c(1,1,1,1),lwd=1,pch=c(NA,21,21,1), col=c('grey',state.colours,state.colours.all[3]),
+                           pt.bg=c(NA,state.colours,NA), xjust=0, cex=1.3, bg='transparent')
+                  }else{
+                    legend('topleft', legend=c('Obs. dep.variable',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
+                           lty=c(1,1,1,1),lwd=1,pch=c(NA,21,21,1), col=c('grey',state.colours,state.colours.all[3]),
+                           pt.bg=c(NA,state.colours,NA), xjust=0, cex=1.1, bg='transparent')
+                  }
+
+                  plot.range=par("usr")
+                  text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
                 }
-                abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
-                grid(NA,NULL)
-                legend('bottomleft', legend=.Object@state.labels,
-                       lty=c(1,1),pch=c(NA,NA), col=state.colours,lwd=1,
-                       xjust=0, cex=1.1,bg='transparent')
-                plot.range=par("usr")
-                text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
+
+                if("C" %in% plot.options){
+                  if(tail(plot.options, n=1) =="C"){
+                    par(mar = c(4,5,0.2,5))
+                  }
+                  # Calc axis limits.
+                  ylim.qhat <- c(floor(min( c(min(data$Qhat.dep.variable,na.rm=T),min(viterbi.est,na.rm=T)))) ,
+                                 ceiling(max( c(max(data$Qhat.dep.variable,na.rm=T),max(viterbi.est,na.rm=T)))))
+
+                  # Plot obs Qhat
+                  pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data$Qhat.dep.variable), interval = plot.units)
+                  if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                    if(with(rle(data$year), max(lengths)) <= 4){
+                      pframe$data.Qhat.dep.variable = zoo::na.approx(object = replace(pframe$data.Qhat.dep.variable, is.na(pframe$data.Qhat.dep.variable), NA), maxgap = 2)
+                    }
+                  }
+
+                  plot(pframe, type="l",col='grey', lwd=1,
+                       ylim=ylim.qhat, xlim=xlim, xlab='', ylab='',xaxt='n')
+
+                  # Plot Markov states as boxes
+                  for (i in 1:nQhat) {
+                    points(obsDates.asISO[i], viterbi.est[i,2],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
+                    lines(rep(obsDates.asISO[i],2), line.matrix[i,],col=state.colours[viterbiPath[i]], lwd=1)
+                  }
+
+                  # Add axis labels
+                  mtext("Transformed dep.variable",side=2,line=3, cex = 0.7)
+                  mtext(paste("[f(XX) /",plot.units,"]"),side=2,line=2, cex=0.6)
+                  # mtext('Year',side=1,line=2)
+                  xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
+                  abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
+                  if(tail(plot.options, n=1) =="C"){
+                    axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
+                    mtext('Year',side=1,line=3)
+                  }
+                  grid(NA,NULL)
+
+                  if(tail(plot.options, n=1) =="C"){
+                    legend('bottomleft', legend=c('Obs. dependent variable',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
+                           lty=c(1,1,1,1),lwd=1,pch=c(NA,21,21,1), col=c('grey',state.colours,state.colours.all[3]),
+                           pt.bg=c(NA,state.colours,NA), xjust=0, cex=1.3, bg='transparent')
+                  }
+
+                  plot.range=par("usr")
+                  text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
+                }
+
+                # Plot the cummulative rainfall residual.
+                #--------------
+
+                # # Calculate the means and residuals
+                # if (plot.units == 'yr') {
+                #   P.mean = mean(data$precipitation)
+                #   P.resid = data$precipitation - P.mean;
+                # } else {
+                #   P.mean = rep(NA,length(.Object@QhatModel.object@subAnnual.Monthly.Steps))
+                #   P.resid = rep(NA, length(data$precipitation))
+                #   for (i in 1:length(.Object@QhatModel.object@subAnnual.Monthly.Steps)) {
+                #     filt = data$month == .Object@QhatModel.object@subAnnual.Monthly.Steps[i]
+                #     P.mean[i] =  mean(data$precipitation[filt])
+                #     P.resid[filt] = data$precipitation[filt] - P.mean[i]
+                #   }
+                # }
+                #
+                # # # Plot the residuals
+                # # plot(obsDates.asISO, P.resid,type='p',xlim=xlim, col='white', bg='white', pch=21, xlab='', ylab='')
+                # # for (i in 1:nQhat) {
+                # #   points(obsDates.asISO[i], P.resid[i],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
+                # # }
+                # # lines(obsDates.asISO, rep(0,length(obsDates.asISO)),col='grey')
+                # # mtext("Rainfall residual [mm]",side=2,line=3)
+                # # mtext('Year',side=1,line=2)
+                #
+                # # Calculate the cumulative residuals.
+                # P.cumResid = cumsum(P.resid)
+                #
+                # # Plot the cumm residuals
+                # plot(obsDates.asISO, P.cumResid, type='l',col='grey', lwd=1, xlim=xlim, xlab='', ylab='',xaxt='n')
+                # abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
+                # grid(NA,NULL)
+                # legend('topright', legend=c('Cum. residual ',.Object@state.labels),
+                #        lty=c(1,NA,NA),pch=c(NA,21,21), col=c('grey',state.colours),
+                #        pt.bg=c(NA,state.colours), xjust=0, cex=1.5, bg='white')
+                #
+                # # Colour the points by the Viterbi state.
+                # for (i in 1:nQhat) {
+                #   points(obsDates.asISO[i], P.cumResid[i],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
+                # }
+                # mtext("Cum. rainfall resid.",side=2,line=3)
+                # mtext(paste("[mm]"),side=2,line=2, cex=0.85)
+                # plot.range=par("usr")
+                # text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="D", font=1, cex=2,pos=1)
+
+                if("D" %in% plot.options){
+                  if(tail(plot.options, n=1) =="D"){
+                    par(mar = c(4,5,0.2,5))
+                  }
+                  # Plot the conditional state probability for each state
+
+                  # Get the conditional probabilities.
+                  emissionProbs = getEmissionDensity(.Object@QhatModel.object, data, NA)
+                  state.probs = getConditionalStateProbabilities(.Object@markov.model.object, data[filt,], matrix(data = emissionProbs[filt,],nrow = NROW(data[filt,]), ncol = nStates))
+
+                  # Plot bar graph
+                  # par(mar = c(4,5,0.2,5))
+                  pframe = padr::pad(data.frame(obsDates.asISO, state.probs[1,]), interval = plot.units)
+                  if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                    if(with(rle(data$year), max(lengths)) <= 4){
+                      pframe$state.probs.1... = zoo::na.approx(object = replace(pframe$state.probs.1..., is.na(pframe$state.probs.1...), NA), maxgap = 2)
+                    }
+                  }
+                  plot(pframe, type = 'l', xlim=xlim, col=state.colours[1],
+                       ylim=c(0,1),xlab='', ylab='', lwd=1, xaxt='n')
+                  if (nStates>1) {
+                    for ( i in 2:nStates) {
+                      pframe = padr::pad(data.frame(obsDates.asISO, state.probs[i,]), interval = plot.units)
+                      if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                        if(with(rle(data$year), max(lengths)) <= 4){
+                          pframe$state.probs.i... = zoo::na.approx(object = replace(pframe$state.probs.i..., is.na(pframe$state.probs.i...), NA), maxgap = 2)
+                        }
+                      }
+                      lines(pframe, col=state.colours[i])
+                    }
+                  }
+                  mtext("State Prob.",side=2,line=3, cex = 0.7)
+                  mtext(paste("[-]"),side=2,line=2, cex=0.6)
+
+                  xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
+                  if(tail(plot.options, n=1) =="D"){
+                    axis(1,at= xaxis.ticks,labels=seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10))
+                    mtext('Year',side=1,line=3)
+                  }
+                  abline(v=xaxis.ticks, col = "lightgray", lty = "dotted",lwd = par("lwd"))
+                  grid(NA,NULL)
+                  legend('bottomleft', legend=.Object@state.labels,
+                         lty=c(1,1),pch=c(NA,NA), col=state.colours,lwd=1,
+                         xjust=0, cex=1.1,bg='transparent')
+                  plot.range=par("usr")
+                  text(plot.range[1]+diff(plot.range[1:2])*0.025, plot.range[3]+diff(par("usr")[3:4])*0.95, labels="", font=1, cex=2,pos=1)
+                }
+
+              }else{# plot grid
+
+                  # set up date axis
+                # if(plot.units == "day"){
+                #     results$date = as.Date(ISOdate(results$Year, results$Month, results$Day))
+                #     results$pairdate =  format(results$date, format="%m-%d")
+                # }else{
+                #   results$date = as.Date(ISOdate(results$Year, results$Month))
+                #   results$pairdate =  format(results$date, format="%m")
+                # }
+
+                # results$state_colours = "white"
+                # results$state_colours = ifelse(results['Viterbi State Number'] == 2, state.colours[2])
+                # results$state_colours = ifelse(results['Viterbi State Number'] == 1, state.colours[2])
+                #
+                #
+                # filt = which(!is.na(results['Viterbi State Number']))
+                #
+                # results$state_colours[filt] = replace(results$state_colours[filt], results[filt,'Viterbi State Number'] == which(state.colours
+                #
+                results = as.data.frame(results)
+                results$date = obsDates.ind.variable.asISO
+                results$pairdate =  format(results$date, format="%m")
+                break.label = c("01","02","03","04","05","06","07","08","09","10","11","12")
+                results$Year = as.numeric(results$Year)
+
+                state.match <- setNames(
+                  state.colours,
+                  state.names
+                )
+
+                # state.value <- unique(results[c("State Name", "Viterbi dep.variable -50%ile")])
+
+                big_tile <- ggplot(results, aes(x = pairdate, y = Year, fill = `State Name`)) +
+                  geom_tile() +
+                  geom_hline(
+                    yintercept = seq(min(results$Year[results$Year %% 10 == 0]), max(results$Year), by = 10),
+                    linetype = "dotted",
+                    colour = "gray",
+                    linewidth = 0.7
+                  ) +
+                  scale_fill_manual(values = state.match, na.value = "grey95") +
+                  scale_x_discrete(expand = c(0,0),
+                                   breaks = break.label,
+                                   labels = c("J","F","M","A","M","J","J","A","S","O","N","D")) +
+                  labs(x = "Month", y = "Year", fill = "state") +
+                  theme(panel.grid = element_blank(),
+                        panel.background = element_rect(fill = "white"),
+                        panel.border = element_rect(fill = "transparent", color = "black"),
+                        axis.text = element_text(size = 14, color = "black"),
+                        axis.title = element_text(size = 16, color = "black"),
+                        legend.text = element_text(size = 14, color = "black"),
+                        legend.position = "right",
+                        legend.justification = "top",
+                        legend.key = element_rect(colour = "black", linewidth = 1))
+
+
+
+
               }
 
               #}
@@ -1413,7 +1491,12 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
             # Return data
             if(do.plot){
-              return(invisible())
+
+              if(plot.options == "grid")
+                return(big_tile)
+              else{
+                return(invisible())
+              }
             }else{
               return(as.data.frame(results))
             }
@@ -1501,13 +1584,17 @@ setMethod(f="check.PseudoResiduals",signature="hydroState",definition=function(.
     data  = .Object@input.data
     n = nrow(data)
     data = getQhat(.Object@Qhat.object, .Object@input.data)
-    Qhat <- data$Qhat.flow
+    Qhat <- data$Qhat.dep.variable
     # data = cbind.data.frame(.Object@input.data,Qhat)
     # get number of states
     nStates = getNumStates(.Object@markov.model.object)
 
-    # Built filter for non NAs of Q and P
-    filt <- !is.na(data$Qhat.flow)&!is.na(data$Qhat.precipitation)
+    # Built filter for non NAs.
+    if(any(names(data) == "ind.variable")){
+      filt <- !is.na(data$Qhat.dep.variable)&!is.na(data$Qhat.ind.variable)
+    }else{
+      filt <- !is.na(data$Qhat.dep.variable)
+    }
 
 
     # Get the markov likelihood and return. Importantly, the object QhatBar is passed so that
@@ -1582,7 +1669,7 @@ setMethod(f="check.PseudoResiduals",signature="hydroState",definition=function(.
       # Interpolate the conditional cumulative distribution from the discrete values to Qhat at time point i
       # NOTE, to avoid P.est[i]==0 (and hence -inf pseudo normal residuals), data$Qhat.flow[i] is limit to >0
       # machine preision.
-      x = max(data$Qhat.flow[i], sqrt(.Machine$double.eps))
+      x = max(data$Qhat.dep.variable[i], sqrt(.Machine$double.eps))
       ind <- which(Qhat.increments>=x)[1]
 
       if (ind==1) {

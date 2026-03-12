@@ -1,60 +1,201 @@
-# hydroState
+# ResidualState
 
-[![CRAN/METACRAN Version](https://img.shields.io/cran/v/hydroState?logo=R&logoColor=blue&label=CRAN%20version)](https://cran.r-project.org/package=hydroState)
-[![](http://cranlogs.r-pkg.org/badges/grand-total/hydroState)](https://cran.r-project.org/package=hydroState)
-[![](http://cranlogs.r-pkg.org/badges/last-month/hydroState)](https://cran.r-project.org/package=hydroState)
-[![Static Badge](https://img.shields.io/badge/Science_Magazine-red?logo=Clarivate&label=Top%201%25%20Most%20Cited%20in&link=https%3A%2F%2Fdoi.org%2F10.1126%2Fscience.abd5085)](https://doi.org/10.1126/science.abd5085)
-![](https://img.shields.io/github/stars/peterson-tim-j/HydroState?style=social&labelColor=yellow&color=yellow)
-[![GitHub forks](https://img.shields.io/github/forks/peterson-tim-j/HydroState)](https://github.com/peterson-tim-j/HydroState/network)
+_ResidualState_ is a forked R-package (from [hydroState](https://peterson-tim-j.github.io/HydroState/)) that identifies statistically significant systematic patterns in residual time series. The package was developed to objectively identify change in water quality concentration, independent of streamflow, at multiple time scales such as monthly and daily. This package can be used for any residual time series; however, the example below is from identifying shifts in residuals of the quick-slow Hubbard Brook C-Q model. This C-Q model performs well at explaining the temporal variability of daily salinity concentrations (electrical conductivity) as a function of streamflow across multiple decades ([Westfall et al. 2025](https://doi.org/10.1029/2024WR039103)). The calibration of this C-Q model is located within the [CQ2 R-package](https://github.com/ThomasWestfall/CQ2). In certain periods of time, the C-Q model over-predicts and under-predicts the observed concentration, and this informs when the observed concentration is lower or higher than what could be explained by the C-Q model. Effectively, this is the change in observed concentration not explained by change in streamflow, and this indicates the change in concentration must be from another catchment process. The timing of when this change occurs is important for appropriately investigating and attributing the change in concentration to another process. That is the purpose of _ResidualState_. This methodology has been utilized to identify how hydrological processes are changing during prolonged multi-year droughts. Details of the methodology and application are within a manuscript under review:
 
-### Overview
-hydroState is an R-package that identifies regime changes in streamflow time-series that is not explained by variations in precipitation. For details of the mathematics, and its use in understanding catchment drought non-recovery, see:
 
-Peterson TJ, Saft M, Peel MC & John A (2021), Watersheds may not recover from drought, Science, DOI: 10.1126/science.abd5085
+Westfall, T. G., Peterson, T. J., Lintern, A. & Western, A. W. (in review), ‘Fresher streams after a prolonged drought in Victoria, Australia', Water Resources Research
 
-The package allows a flexible set of Hidden Markov Models of annual, seasonal or monthly time-step to be built and which includes precipitation as a predictor of streamflow. Suites of models can be build for a single catchment, ranging from from one to three states and each with differing combinations of error models and auto-correlation terms, allowing the most parsimonious model to easily be identified (by AIC). The entire package is written in R S4 object oriented code with documentation of the user facing functions. 
 
-### Installation
+The figure is an example of the results below. At times, the C-Q model over-predicts suggesting observed stream salinity is "fresher" than expected, and at other times, under-predicts suggesting observed stream salinity is "saltier" than expected. 
 
-You can install the development version of hydroState from
-[GitHub](https://github.com/) with:
+![Grid plot of monthly residual states](../man/figures/residual.state.png){width=100%}
 
-``` r
-# install.packages("devtools")
-devtools::install_github("peterson-tim-j/HydroState")
+### Install ResidualState and add a few additional R-packages
+```r
+
+# Install and load the ResidualState
+devtools::install_github("ThomasWestfall/ResidualState")
+
+# Add helper packages
+library(tidyr)
+library(dplyr)
+library(ggplot2)
 ```
 
-You can also get the official release version from CRAN _soon_:
 
-``` r
-install.packages("hydroState")
+### Load required data
+This example imports a dataframe from the output of the C-Q model with actual concentration "obs.C" and simulated concentration "sim.C" from the model in units of milligrams per liter (mg/L). Note the "residuals" are also imported and are in natural log space (log("sim.C") - log("obs.C")). Besides the residuals, the only other required columns are a time-step (either: "year", "month", or "day"). Only "year" is required for an annual analysis, "year" and "month" for a monthly analysis, and "year", "month", and "day" for a daily analysis. This example shows a daily and monthly analysis. For reference, the dataframe imported for this example also include catchment average runoff as "flow" (which is streamflow divided by catchment area) and baseflow as "flow.s" (from CQ2 model output), both in units of millimeters per day (mm/d). 
+
+```r
+# Select gaugeID
+gaugeID = "234201B"
+
+# Load
+Residuals.daily_234201B = hydroState::Residual.daily_234201B
+
+# Check input data
+head(Residuals.daily_234201B)
+
+#>  year month day   residual        flow    sim.C    obs.C      flow.s    dtime  yearmonth
+#> 1993     5  14 -0.2787168 0.007035374 2998.147 3961.851 0.007035374 1993.364 1993-05-01
+#> 1993     5  15 -0.2976464 0.007100299 3045.682 4101.576 0.006778027 1993.367 1993-05-01
+#> 1993     5  16 -0.3351499 0.007723581 3088.122 4317.657 0.006542165 1993.370 1993-05-01
+#> 1993     5  17 -0.3012015 0.007870385 3131.548 4232.229 0.006320192 1993.373 1993-05-01
+#> 1993     5  18 -0.3129623 0.007946491 3174.245 4340.684 0.006110441 1993.375 1993-05-01
+#> 1993     5  19 -0.3955748 0.008211242 3214.283 4773.975 0.005914876 1993.378 1993-05-01
 ```
-### Usage
 
-Be sure to see the [Getting Started](https://peterson-tim-j.github.io/HydroState/articles/hydroState.html) article for an example of this workflow. The package contains a default hydroState model object that explains streamflow as a function of precipitation using a linear model. Once the model object is built ([build()](https://peterson-tim-j.github.io/HydroState/reference/build.html)), the model is fitted ([fit.hydroState()](https://peterson-tim-j.github.io/HydroState/reference/fit.hydroState.html)) to determine the most likely rainfall-runoff state at each time-step. To assess the adequacy of the fit, the residuals are plotted ([plot()](https://peterson-tim-j.github.io/HydroState/reference/plot.hydroState.html)), and an adequate fit requires the residuals to be normally distributed, uniform, with minimal correlation and minimal trends. The resulting runoff states from the fitted model can then be evaluated over time ([plot()](https://peterson-tim-j.github.io/HydroState/reference/plot.hydroState.html)) and even exported ([get.states()](https://peterson-tim-j.github.io/HydroState/reference/get.states.html)) with the state values, confidence intervals, and conditional probabilities at each time-step. Input data requires a dataframe with catchment average runoff and precipitation at annual, seasonal, or monthly timesteps, and gaps with missing data are permitted. 
+### Calculate residuals (if needed)
+```r
+# Residuals in natural log space
+Residuals.daily_234201B$residuals = log(Residual.daily_234201B$sim.C) - log(Residual.daily_234201B$obs.C)
+```
 
-#### Adjusting the default model
+### Create monthly dataframe (if needed)
+```r
+# Create year-month column
+Residual.monthly_234201B =  Residual.daily_234201B  %>%
+    mutate(yearmonth = lubridate::make_date(year,month))
 
-To better explain the rainfall-runoff relationship, the default model can be adjusted by selecting various items within the [build()](https://peterson-tim-j.github.io/HydroState/reference/build.html) function. These include:
+# Aggregate daily data into monthly data by taking the mean of the residual and sum of flow
+Residual.monthly_234201B = Residual.monthly_234201B %>% group_by(yearmonth = yearmonth) %>%
+    summarize(
+              year = mean(year),
+              month = mean(month),
+              residual.count = sum(!is.na(residual)),
+              residual = mean(residual, na.rm = TRUE),
+              flow = sum(flow, na.rm = TRUE),
+              flow.s = sum(flow.s, na.rm = TRUE)
+              )
+   
+# just make dataframe rather than tbl..            
+Residual.monthly_234201B = as.data.frame(Residual.monthly_234201B) 
+              
+# If number of days with residuals in a month is less than 28, remove by setting month residual to NA.
+Residual.monthly_234201B$residual[which(Residual.monthly_234201B$residual.count <28)] = NA
 
-* `data.transform`: transform streamflow observations in order to reduce skew: `boxcox`, `log`, `burbidge`, or `none`
-* `parameters`: account for auto-correlation through including the degree of auto-correlation: `AR1`, `AR2`, or `AR3`
-* `state.shift.parameters`: assign either the intercept, slope, standard deviation, or auto-correlation parameter as state dependent parameter
-* `error.distribution`: adjust the error distribution with `normal`, `gamma`, or `truc.normal`
-* `seasonal.parameters`: account for intra-annual varation within the rainfall-runoff relationship
-* `transition.graph`: set the number of possible states in the model (1, 2, or 3).
+```
 
-An example of how to adjust the default model is demonstrated within the [Adjust the default state model](https://peterson-tim-j.github.io/HydroState/articles/adjust.state.model.html) article and [Seasonal and monthly models](https://peterson-tim-j.github.io/HydroState/articles/subAnnual.models.html) article. 
+## Monthly residual state analysis 
+This builds a one and two state monthly model to evaluate the residuals of the quick-slow C-Q model. Set the dependent variable 'dep.variable' to equal the residual time series. The monthly model is simply a function the conditional mean, 'a0', and standard deviation, 'std.a0'.
+```r
 
-#### Finding the best model
+## Build model with one-stata
+model.monthly.1 = build(input.data = data.frame(
+                        year = Residual.monthly_234201B$year,
+                        month = Residual.monthly_234201B$month,
+                        dep.variable = Residual.monthly_234201B$residual),
+                data.transform = 'none',
+                parameters = c('a0','std.a0'),
+                state.shift.parameters = c('a0','std.a0'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,1,1))
+                
+# Build model with two-states
+model.monthly.2 = build(input.data = data.frame(
+                        year = Residual.monthly_234201B$year,
+                        month = Residual.monthly_234201B$month,
+                        dep.variable = Residual.monthly_234201B$residual),
+                data.transform = 'none',
+                parameters = c('a0','std.a0'),
+                state.shift.parameters = c('a0','std.a0'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,2,2))
+```
 
-There is an additional option to construct all possible types of models using the [build.all()](https://peterson-tim-j.github.io/HydroState/reference/build.all.html) function, and compare them using the same [fit.hydroState()](https://peterson-tim-j.github.io/HydroState/reference/fit.hydroState.html) function. The most likely model can be selected based on the AIC where the best model will have the lowest AIC. An example of this is demonstrated at the end of the [Adjust the default state model](https://peterson-tim-j.github.io/HydroState/articles/adjust.state.model.html) article and [Seasonal and monthly models](https://peterson-tim-j.github.io/HydroState/articles/subAnnual.models.html) article. To get stated, it is recommended to evaluate the default model at first with one state and again with two states as shown in the [Getting Started](https://peterson-tim-j.github.io/HydroState/articles/hydroState.html) article.
+## Fit both monthly models
+```r
+model.monthly.1 = fit.hydroState(model.monthly.1, pop.size.perParameter = 10, max.generations = 500)
 
-### How to cite hydroState:
+model.monthly.2 = fit.hydroState(model.monthly.2, pop.size.perParameter = 10, max.generations = 500)
 
-Peterson TJ, Saft M, Peel MC & John A (2021), Watersheds may not recover from drought, Science, DOI: 10.1126/science.abd5085. 
+```
+## Compare 1-state and 2-state models
 
-### Acknowledgments:
+### Is the 2-state model acceptable?
+If the 2-state model has a better likelihood than the 1-state model, than we can accept the 2-state model. Since we are optimizing through minimizing the negative log-likelihood function, the model with the lower negative log-likelihood is the accepted model. Thus, the 2-state model can only be accepted when the negative log-likelihood is lower than the 1-state model. 
+```r
+model.monthly.1@calibration.results$bestval
+#> [1] -50.3986
 
-The package development was funded by the Victorian Government The Department of Energy, Environment, and Climate Action (https://www.water.vic.gov.au/). 
+model.monthly.2@calibration.results$bestval
+#> [1] -59.5713
 
+```
+(i.e., -59.5713 < -50.3986, so we can accept the 2-state model is best at explaining the reality of the system)
+
+### Is there sufficient evidence for the 2-state model?
+Now that the 2-state model is accepted, compare the Akaike Information Criteria (AIC) of each model in order to determine if there is enough weight of evidence to support the 2-state model. The AIC of the 2-state model should be less than the 1-state model. 
+```r
+get.AIC(model.monthly.1)
+#> [1] -96.79721
+
+get.AIC(model.monthly.2)
+#> [1] -105.1427
+```
+(i.e., -105.1427 < -96.79721, so there is sufficient evidence for the 2-state model)
+
+## Tile plot of states over time
+For the 2-state model, the most probable sequence of states is determined using the Viterbi algorithm. Then, we assign a name to each state based on the value of their conditional mean. The 'normal' state is assigned to the state that occurs most often throughout the record. This 'normal' is relative, where the other state will either be 'low' or 'high' depending on the conditional mean of each state. 
+```r
+# set the reference year to name the states
+model.monthly.2 = setInitialYear(model.monthly.2, 1993)
+
+# plot grid plot.. 
+plot(model.monthly.2, state.grid = TRUE)
+
+```
+This produces a grid plot with the states shown over time. Given this is for a residual time series analysis, the states indicated where the C-Q model overestimated and underestimated observations. The 'low' state indicates where residuals are lower (more negative) than what the C-Q model estimated, so an under estimation. The 'normal' state indicates where residuals are 'higher' than what the C-Q model estimated, so an over estimation. This grid plot can be re-plotted to reflect a more informative meaning of these residual states.
+
+![Grid plot of monthly residual states](../man/figures/grid.plot.png){width=100%}
+
+## Tile plot of saltier and fresher states over time
+Since the C-Q model explained stream salinity (EC) concentration as a function of streamflow, the residuals represent where stream salinity (EC) concentration is lower or higher, independent of streamflow. The state names can then be conveniently renamed to "fresher" to indicate when the stream is "fresher" (less salty) than expected and "saltier" (more salty) than expected for a given streamflow.
+For this example: "Normal" = "Fresher" and "Low" = "Saltier"
+
+```r
+# export states
+model.states = get.states(model.monthly.2)
+
+## rename state names, colors, then match for plotting
+model.states[which(model.states['State Name'] == "Normal"),'State Name'] = "Fresher"
+model.states[which(model.states['State Name'] == "Low"),'State Name'] = "Saltier"
+
+#colours
+state.colours = c("#af8dc3","#762a83")
+
+# match 
+state.match <- setNames(
+                  state.colours,
+                  c("Fresher","Saltier")
+                )
+
+# add additional date columns for plotting
+model.states$date = as.Date(ISOdate(model.states$Year, model.states$Month,1))
+model.states$pairdate =  format(model.states$date, format="%m")
+model.states$Year = as.numeric(model.states$Year)
+
+# plot grid plot with renamed states
+ggplot(model.states, aes(x = pairdate, y = Year, fill = `State Name`)) +
+              geom_tile() +
+              scale_fill_manual(values = state.match, na.value = "grey95") +
+              scale_x_discrete(expand = c(0,0),
+                               breaks =c("01","02","03","04","05","06","07","08","09","10","11","12"),
+                               labels = c("J","F","M","A","M","J","J","A","S","O","N","D")) +
+              scale_y_continuous(breaks = seq(min(model.states$Year[model.states$Year %% 10 == 0]), max(model.states$Year), by = 10),) +
+              labs(x = "Month", y = "Year", fill = "state") +
+              theme(panel.grid = element_blank(),
+                    panel.background = element_rect(fill = "white"),
+                    panel.border = element_rect(fill = "transparent", color = "black"),
+                    axis.text = element_text(size = 14, color = "black"),
+                    axis.title = element_text(size = 16, color = "black"),
+                    legend.text = element_text(size = 14, color = "black"),
+                    legend.position = "right",
+                    legend.justification = "top",
+                    legend.key = element_rect(colour = "black", linewidth = 1))
+
+```
+
+![Grid plot of monthly residual states](../man/figures/residual.state.png){width=100%}

@@ -12,6 +12,7 @@
   dep.variable = FALSE,
   dep.variable.transformed = FALSE,
   cond.state.prob = FALSE,
+  state.grid = FALSE,
   siteID = NULL,
   file = NULL
 )
@@ -30,6 +31,8 @@
 \item{dep.variable.transformed}{option to plot transformed dependent variable and states over time.}
 
 \item{cond.state.prob}{option to plot the conditional state probabilities over time for each state.}
+
+\item{state.grid}{option to plot states over time in a grid plot.}
 
 \item{siteID}{character string of catchment identifier (i.e. gauge ID). Default is NULL. Only recommended when exporting (i.e, file = "filename.pdf").}
 
