@@ -64,11 +64,15 @@ Residual.monthly_234201B =  Residual.daily_234201B  %>%
 Residual.monthly_234201B = Residual.monthly_234201B %>% group_by(yearmonth = yearmonth) %>%
     summarize(
               year = mean(year),
+              month = mean(month),
               residual.count = sum(!is.na(residual)),
               residual = mean(residual, na.rm = TRUE),
               flow = sum(flow, na.rm = TRUE),
               flow.s = sum(flow.s, na.rm = TRUE)
               )
+   
+# just make dataframe rather than tbl..            
+Residual.monthly_234201B = as.data.frame(Residual.monthly_234201B) 
               
 # If number of days with residuals in a month is less than 28, remove with setting month residual to NA.
 Residual.monthly_234201B$residual[which(Residual.monthly_234201B$residual.count <28)] = NA
@@ -80,7 +84,10 @@ This builds a one and two state monthly model to evaluate the residuals of the q
 ```r
 
 ## Build model 
-model.monthly.1 = build(input.data = Residual.monthly_234201B,
+model.monthly.1 = build(input.data = data.frame(
+                        year = Residual.monthly_234201B$year,
+                        month = Residual.monthly_234201B$month,
+                        dep.variable = Residual.monthly_234201B$residual),
                 data.transform = 'none',
                 parameters = c('a0','std.a0'),
                 state.shift.parameters = c('a0','std.a0'),
@@ -88,7 +95,11 @@ model.monthly.1 = build(input.data = Residual.monthly_234201B,
                 flickering = FALSE,
                 transition.graph = matrix(TRUE,1,1))
 
-model.monthly.2 = build(input.data = Residual.monthly_234201B,
+model.monthly.2 = build(input.data = data.frame(
+                        year = Residual.monthly_234201B$year,
+                        month = Residual.monthly_234201B$month,
+                        dep.variable = Residual.monthly_234201B$residual,
+                        ind.variable = Residual.monthly_234201B$flow),
                 data.transform = 'none',
                 parameters = c('a0','std.a0'),
                 state.shift.parameters = c('a0','std.a0'),
@@ -104,27 +115,33 @@ model.monthly.1 = fit.hydroState(model.monthly.1, pop.size.perParameter = 10, ma
 model.monthly.2 = fit.hydroState(model.monthly.2, pop.size.perParameter = 10, max.generations = 500)
 
 ```
-## Compare 1-state and 2-state models based on AIC
-The lower AIC in the 2-state indicates sufficient evidence for the existence of 2-states in the series of residuals.
+## Compare 1-state and 2-state models based on negative log-likelihood
+If the 2-state model has a better likelihood than the 1-state model, than we can accept the 2-state model. Since we are optimizing through minimizing the negative log-likelihood function, the model with the lower negative log-likelihood is the better model. Thus, the 2-state model can only be accepted when the negative log-likelihood is lower than the 1-state model. 
 ```r
-get.AIC(model.monthly.1)
-#> [1] 
+model.monthly.1@calibration.results$bestval
+#> [1] -50.3986
 
-get.AIC(model.monthly.2)
-#> [1] 
+model.monthly.2@calibration.results$bestval
+#> [1] -59.5713
+
 ```
+-59.5713 < -50.3986, so we can accept the 2-state model is best at explaining the reality of the system. 
 
-## Evaluate the residual state-shifts
-Set the state names relative to a year in the record using `setInitialYear()` and evaluat the residual states overtime of the monthly 2-state model using `plot.hydroState()`. The year 1991 is selected as the initial year because there is not sufficient streamflow data for 1990 at this site (Bet Bet Creek - 407211).
-
+## Tile plot of states over time
+The states are named based on the frequency of occurrence throughout the time-series. The 'normal' state is assigned to the state that occurs most often. This 'normal' is relative, where the other state will either be 'low' or 'high' depending on the 'normal' value. 
 ```r
 # set the reference year to name the states
-model = setInitialYear(model.monthly.2, 1991)
+model = setInitialYear(model.monthly.2, 1993)
 
 # plot grid plot.. 
 plot(model.monthly.2)
 
 ```
+
+## Evaluate the residual state-shifts
+Set the state names relative to a year in the record using `setInitialYear()` and evaluat the residual states overtime of the monthly 2-state model using `plot.hydroState()`. The year 1991 is selected as the initial year because there is not sufficient streamflow data for 1990 at this site (Bet Bet Creek - 407211).
+
+
 
 ![Timeseries plot of annual runoff states from adjusted model](../man/figures/gamma.annual.model.timeseries.407211.png){width=100%}
 

@@ -5,7 +5,7 @@
 \title{Builds hydroState model}
 \usage{
 build(
-  input.data = data.frame(year = c(), flow = c(), precip = c()),
+  input.data = data.frame(year = c(), dep.variable = c(), ind.variable = c()),
   data.transform = "boxcox",
   parameters = c("a0", "a1", "std"),
   seasonal.parameters = NULL,

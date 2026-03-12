@@ -135,7 +135,7 @@ select.transform <- function(func = 'boxcox', input.data=data.frame(year=c(), fl
 }
 
 #' @keywords internal
-select.stateModel <- function(input.data = data.frame(year=c(), flow=c(), precip=c()),
+select.stateModel <- function(input.data = data.frame(year=c(), dep.variable=c(), ind.variable=c()),
                               parameters = c('a0','a1','std'),
                               seasonal.parameters,
                               state.shift.parameters = c('a0','std'),
@@ -155,8 +155,8 @@ select.stateModel <- function(input.data = data.frame(year=c(), flow=c(), precip
     stop("'parameters' are not in a character vector")
   }
  ##############################3
-  # if residual.. do residual state analysis
-  if('residual' %in% colnames(input.data)){
+  # if negative values, do residual state analysis
+  if(min(input.data$dep.variable, na.rm = TRUE) < 0){
 
     func = 'RhatModel.homo.normal.linear'
 
@@ -599,7 +599,7 @@ select.Markov <- function(flickering = FALSE,
 
 
 
-build <- function(input.data = data.frame(year=c(), flow=c(), precip=c()),
+build <- function(input.data = data.frame(year=c(), dep.variable=c(), ind.variable=c()),
                        data.transform = 'boxcox',
                        parameters = c('a0','a1','std'),
                        seasonal.parameters = NULL,
@@ -652,49 +652,104 @@ build <- function(input.data = data.frame(year=c(), flow=c(), precip=c()),
     error.distribution = 'gamma'
   }
 
-  ###### if input is residual.state model, build residual state model
-  if('residual' %in% colnames(input.data)){
+  ###### if input is negatives in dep.variable, build residual state model
+  if(min(input.data$dep.variable,na.rm = TRUE) < 0){
+
+  #### assume residual analysis, allow emission to go negative...
     data.transform = select.transform(func = 'none', input.data)
 
-    # default is varance due to Q
-    if(is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
+    # if no independent variable, just do dependent
+    if(!any(names(input.data)=="ind.variable")){
 
-      stateModel = select.stateModel(input.data,
-                                     parameters = c('a0', 'std.a0', 'std.a1'),
-                                     seasonal.parameters,
-                                     state.shift.parameters =  c('a0', 'std.a0', 'std.a1'),
-                                     error.distribution = error.distribution,
-                                     transition.graph = transition.graph)
-    }
-    if(!is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
+      if('std.a1' %in% parameters)
+        stop("Remove 'std.a1' as a parameter or include 'ind.variable' in the input.data.")
 
-      stateModel = select.stateModel(input.data,
-                                     parameters,
-                                     seasonal.parameters,
-                                     state.shift.parameters =  parameters,
-                                     error.distribution = error.distribution,
-                                     transition.graph = transition.graph)
-    }
+      if('std.a1' %in% state.shift.parameters)
+        stop("Remove 'std.a1' as a state.shift.parameter or include 'ind.variable' in the input.data.")
 
-    if(is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
 
-      stateModel = select.stateModel(input.data,
-                                     parameters = c('a0', 'std.a0', 'std.a1'),
-                                     seasonal.parameters,
-                                     state.shift.parameters,
-                                     error.distribution = error.distribution,
-                                     transition.graph = transition.graph)
-    }
+      # default is varance due to Q
+      if(is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
 
-    if(!is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
+        stateModel = select.stateModel(input.data,
+                                       parameters = c('a0', 'std.a0'),
+                                       seasonal.parameters,
+                                       state.shift.parameters =  c('a0', 'std.a0'),
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
 
-      stateModel = select.stateModel(input.data,
-                                     parameters,
-                                     seasonal.parameters,
-                                     state.shift.parameters,
-                                     error.distribution = error.distribution,
-                                     transition.graph = transition.graph)
-    }
+      if(!is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
+
+        stateModel = select.stateModel(input.data,
+                                       parameters,
+                                       seasonal.parameters,
+                                       state.shift.parameters =  parameters,
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
+
+      if(is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
+
+        stateModel = select.stateModel(input.data,
+                                       parameters = c('a0', 'std.a0'),
+                                       seasonal.parameters,
+                                       state.shift.parameters,
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
+
+      if(!is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
+
+        stateModel = select.stateModel(input.data,
+                                       parameters,
+                                       seasonal.parameters,
+                                       state.shift.parameters,
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
+
+    }else{
+
+      #else default is variance due to Q when independent variable is present. (std.a1)
+      if(is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
+
+        stateModel = select.stateModel(input.data,
+                                       parameters = c('a0', 'std.a0', 'std.a1'),
+                                       seasonal.parameters,
+                                       state.shift.parameters =  c('a0', 'std.a0', 'std.a1'),
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
+      if(!is.null(parameters) && is.null(seasonal.parameters) && is.null(state.shift.parameters)){
+
+        stateModel = select.stateModel(input.data,
+                                       parameters,
+                                       seasonal.parameters,
+                                       state.shift.parameters =  parameters,
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
+
+      if(is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
+
+        stateModel = select.stateModel(input.data,
+                                       parameters = c('a0', 'std.a0', 'std.a1'),
+                                       seasonal.parameters,
+                                       state.shift.parameters,
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
+
+      if(!is.null(parameters) && is.null(seasonal.parameters) && !is.null(state.shift.parameters)){
+
+        stateModel = select.stateModel(input.data,
+                                       parameters,
+                                       seasonal.parameters,
+                                       state.shift.parameters,
+                                       error.distribution = error.distribution,
+                                       transition.graph = transition.graph)
+      }
 
       # create Markov model
       Markov = select.Markov(flickering, transition.graph)
@@ -702,7 +757,11 @@ build <- function(input.data = data.frame(year=c(), flow=c(), precip=c()),
       # build default model
       return(new('hydroState',input.data, data.transform, stateModel, Markov))
 
+
+    }
+
   }
+
 
   ############
 
@@ -1773,6 +1832,319 @@ residual.state.plot <- function(input.data=data.frame(residual=c(), flow = c()))
 
   return(Residual_Q_plot)
 
+}
+
+
+# Get and Plot States
+#' \code{plot.states}
+# @export plot.states
+plot.states <- function(model, ID, do.pdf = FALSE,
+                        CQ.scatter.only = FALSE,
+                        file.location = NULL,
+                        vstates = NULL){
+
+  #set state names, fresher, saltier, or normal...
+
+  #get unique number of years
+  years <- unique(model@input.data$year)
+
+  #assign first year/month that is not NA
+
+  # if(is.null(vstates)){
+    #Name the states names, this is based on average C estimate for both state in entire record
+
+    model <- setInitialYear(model, years[1])
+
+    # get states...
+    vstates <- as.data.frame(viterbi(.Object = model, do.plot=F))
+  # }else{
+  #
+  #   one.value <- mean(vstates$`Viterbi C -50%ile`[which(vstates$`Viterbi State Number` == 1)], na.rm = TRUE)
+  #   two.value <- mean(vstates$`Viterbi C -50%ile`[which(vstates$`Viterbi State Number` == 2)], na.rm = TRUE)
+  #
+  #   model@state.labels[1] = ifelse(one.value>two.value,"Normal","Low")
+  #   model@state.labels[2] = ifelse(two.value>one.value,"Normal","Low")
+  # }
+
+  #remove leep days
+  filt = which(vstates$Month == 2 &  vstates$Day == 29)
+  vstates = vstates[-filt,]
+
+  # factorize state number
+  vstates$`Viterbi State Number` <- as.factor(vstates$`Viterbi State Number`)
+  uniqueyears <- unique(vstates$Year)
+  uniqueyears <- uniqueyears[order(uniqueyears)]
+
+  # Set state name based on low/high
+  if("Normal" %in% model@state.labels & "High" %in% model@state.labels){
+    vstates$state_name = replace(vstates$state_name,vstates$`Viterbi State Number` == which(model@state.labels == "Normal"),"Fresher")
+    vstates$state_name = replace(vstates$state_name,vstates$`Viterbi State Number` == which(model@state.labels == "High"),"Saltier")
+    Salt.col = which(model@state.labels == "High")
+    Fresh.col = which(model@state.labels == "Normal")
+  }
+  if("Normal" %in% model@state.labels & "Normal (duplicate)" %in% model@state.labels){
+    vstates$state_name = replace(vstates$state_name,vstates$`Viterbi State Number` == which(model@state.labels == "Normal (duplicate)" ),"Normal" )
+    vstates$state_name = replace(vstates$state_name,vstates$`Viterbi State Number` == which(model@state.labels == "Normal" ),"Normal" )
+    Salt.col = NA
+    Fresh.col = NA
+  }
+  if(model@QhatModel.object@nStates ==1){
+    vstates$state_name = replace(vstates$state_name,vstates$`Viterbi State Number` == which(model@state.labels == "Normal" ),"Normal" )
+    Salt.col = NA
+    Fresh.col = NA
+
+  }
+  if("Normal" %in% model@state.labels & "Low" %in% model@state.labels){
+    vstates$state_name = replace(vstates$state_name,vstates$`Viterbi State Number` == which(model@state.labels == "Normal"),"Saltier")
+    vstates$state_name = replace(vstates$state_name,vstates$`Viterbi State Number` == which(model@state.labels == "Low"),"Fresher")
+
+    Salt.col = which(model@state.labels == "Normal")
+    Fresh.col = which(model@state.labels == "Low")
+  }
+
+  # streamflow less than 30 days
+  vstates$state_name = ifelse(is.na(vstates$`Viterbi C -50%ile`), "Q < 30 days",vstates$state_name)
+
+  # no observations C
+  vstates$state_name = ifelse(is.na(vstates$`Obs. C`), "No Obs. C",vstates$state_name)
+
+  statevalueFresh <- mean(vstates$`Viterbi C -50%ile`[which(vstates$state_name == "Fresher")], na.rm = TRUE)
+  statevalueSalt <- mean(vstates$`Viterbi C -50%ile`[which(vstates$state_name == "Saltier")], na.rm = TRUE)
+
+  if(model@QhatModel.object@nStates ==1){
+    statevalueNormal <- mean(vstates$`Viterbi C -50%ile`[which(vstates$state_name == "Normal")])
+    statevalueFresh = NA
+    statevalueSalt = NA
+  }else{statevalueNormal = NA}
+
+  if("Normal (duplicate)" %in% model@state.labels){
+    statevalueNormaldup <- mean(vstates$`Viterbi C -50%ile`[which(vstates$state_name == "Normal (duplicate)")])
+    statevalueFresh = NA
+    statevalueSalt = NA
+  }else{statevalueNormaldup = NA}
+
+
+  # initiaten normalize cum.sum for 14 days streamflow
+  vstates$date = as.Date(ISOdate(vstates$Year, vstates$Month, vstates$Day))
+  vstates$pairdate =  format(vstates$date, format="%m-%d")
+
+  vstates = vstates %>%  mutate(Month = factor(Month, levels = 1:12)) %>% arrange(Month)
+  vstates <- vstates[order(vstates$Year),]
+
+  # Add flow, rolling sum, and normalize
+  vstates$flow = model@input.data$flow[-filt]
+
+  vstates$flow.14day = NA
+  vstates$flow.14day.normal = NA
+
+  vstates$flow.14day = RcppRoll::roll_sum(vstates$flow,14, align = "right", fill = NA)
+
+  vstates$flow.14day.normal = vstates$flow.14day / max(vstates$flow.14day, na.rm = TRUE)
+
+  vstates$flow.14day.normal.time = vstates$Year - 0.5 + vstates$flow.14day.normal
+
+  vstates$flow.14day.normal.condition = ifelse(vstates$flow.14day.normal == 0, "dashed" ,"solid")
+
+  vstates$flow.14day.normal = ifelse(vstates$flow.14day.normal < 0.1, 0.1 ,vstates$flow.14day.normal)
+
+  if("Day" %in% colnames(vstates)){
+    vstates$date = as.Date(ISOdate(vstates$Year, vstates$Month, vstates$Day))
+    vstates$pairdate =  format(vstates$date, format="%m-%d")
+    xlabel = "Day of Year"
+    breaks.label = c("01-01","02-01","03-01","04-01","05-01","06-01","07-01","08-01","09-01","10-01","11-01","12-01")
+    labels.break = c("Jan-01","Feb-01","Mar-01","Apr-01","May-01","Jun-01","Jul-01","Aug-01","Sep-01","Oct-01","Nov-01","Dec-01")
+  }
+
+  # parameter table
+  # define parameter output table
+  para.table = data.frame(value1 = c(round(10^model@QhatModel.object@parameters@values$mean.C0[1],2),
+                                     round(10^model@QhatModel.object@parameters@values$mean.V0[1],4),
+                                     round(10^model@QhatModel.object@parameters@values$mean.Cs[1],2),
+                                     round(1/(model@QhatModel.object@parameters@values$mean.b0[1]/10),2),
+                                     ifelse(round(10^model@QhatModel.object@parameters@values$mean.Cq[1],4) == 0,
+                                            signif(10^model@QhatModel.object@parameters@values$mean.Cq[1]),
+                                            round(10^model@QhatModel.object@parameters@values$mean.Cq[1],4)),
+                                     ifelse(round(10^model@QhatModel.object@parameters@values$mean.yq[1],4) == 0,
+                                            signif(10^model@QhatModel.object@parameters@values$mean.yq[1]),
+                                            round(10^model@QhatModel.object@parameters@values$mean.yq[1],4)),
+                                     round(model@QhatModel.object@parameters@values$mean.b1[1]/10,4),
+                                     round(model@QhatModel.object@parameters@values$std.a0[1],4),
+                                     round(model@QhatModel.object@parameters@values$std.a1[1],4)),
+                          value2 = c(round(10^model@QhatModel.object@parameters@values$mean.C0[2],2),
+                                     round(10^model@QhatModel.object@parameters@values$mean.V0[2],4),
+                                     round(10^model@QhatModel.object@parameters@values$mean.Cs[2],2),
+                                     round(1/(model@QhatModel.object@parameters@values$mean.b0[2]/10),2),
+                                     ifelse(round(10^model@QhatModel.object@parameters@values$mean.Cq[2],4) == 0,
+                                            signif(10^model@QhatModel.object@parameters@values$mean.Cq[2]),
+                                            round(10^model@QhatModel.object@parameters@values$mean.Cq[2],4)),
+                                     ifelse(round(10^model@QhatModel.object@parameters@values$mean.yq[2],4) == 0,
+                                            signif(10^model@QhatModel.object@parameters@values$mean.yq[2]),
+                                            round(10^model@QhatModel.object@parameters@values$mean.yq[2],4)),
+                                     round(model@QhatModel.object@parameters@values$mean.b1[2]/10,4),
+                                     round(model@QhatModel.object@parameters@values$std.a0[2],4),
+                                     round(model@QhatModel.object@parameters@values$std.a1[2],4)))
+  rownames(para.table) <- c("C0", "V0", "Cs","ys","Cq","yq","B","a0","a1")
+
+  para.table[is.na(para.table)] <- ""
+
+  if(model@QhatModel.object@nStates >1){
+    colnames(para.table)[1] = ifelse(Fresh.col ==1, "Fresher", ifelse(Salt.col ==1, "Saltier", "Normal"))
+    colnames(para.table)[2] = ifelse(Fresh.col ==2, "Fresher", ifelse(Salt.col ==2, "Saltier", "Normal"))
+  }else{
+    colnames(para.table)[1] = "Normal"
+    colnames(para.table)[2] = ""
+  }
+
+  #bold row based on state.param... transparent background
+  mytheme <- gridExtra::ttheme_minimal(
+    core = list(fg_params=list(cex = .9)),
+    colhead = list(fg_params = list(cex = 1.0)),
+    rowhead=list(fg_params=list(cex = 1.0)))
+
+  para.table <- gridExtra::tableGrob(para.table, theme=mytheme)
+
+  # find and bold state param
+  state.param = model@QhatModel.object@parameters@values
+
+  state.param = c(length(state.param[[which(names(state.param) == 'mean.C0')]]) > 1,
+                  length(state.param[[which(names(state.param) =='mean.V0')]]) > 1,
+                  length(state.param[[which(names(state.param) == 'mean.Cs')]]) > 1,
+                  length(state.param[[which(names(state.param) == 'mean.b0')]]) > 1,
+                  length(state.param[[which(names(state.param) == 'mean.Cq')]]) > 1,
+                  length(state.param[[which(names(state.param) == 'mean.yq')]]) > 1,
+                  length(state.param[[which(names(state.param) == 'mean.b1')]]) > 1,
+                  length(state.param[[which(names(state.param) =='std.a0')]]) > 1,
+                  length(state.param[[which(names(state.param) =='std.a1')]]) > 1)
+
+  # bold only state.param
+  for (i in which(state.param == TRUE)+1) {
+    para.table$grobs[[i]] <- editGrob(para.table$grobs[[i]], gp=gpar(fontface="bold"))
+  }
+
+  col_vector <- c("Fresher"="#af8dc3", "Saltier" ="#762a83", "Normal" = "#abdda4", "Normal (duplicate)" ="#abdda4", "Q < 30 days" = alpha("#CDCDCD",0.5), "No Obs. C" = "white")
+
+
+  big_tile <- ggplot(vstates,  aes(x = pairdate, y = Year, fill = state_name)) +
+    geom_tile() +
+    scale_fill_manual(values = col_vector,breaks = c("Fresher","Saltier","Normal","Normal (duplicate)","Q < 30 days", "No Obs. C"),
+                      labels=c(paste("Fresher: ",round(statevalueFresh,2),sep=""),paste("Saltier: ",round(statevalueSalt,2),sep=""),
+                               paste("Normal: ",round(statevalueNormal,2),sep=""),paste("Normal (duplicate): ",round(statevalueNormaldup,2),sep=""),
+                               paste("Q < 30 days",sep=""),paste("No Obs. C",sep="")))+ #breaks = levels(2))#, aesthetics = c("coluor", "fill")) +
+    scale_x_discrete(expand = c(0,0), breaks = breaks.label, labels = c("J","F","M","A","M","J","J","A","S","O","N","D")) +
+    xlab("Day of Year") + ylab("Year") +
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white"),
+          panel.border = element_rect(fill = "transparent", color = 'black')) +
+    theme(axis.text=element_text(size=14, color = 'black'),
+          axis.title=element_text(size=16, color = 'black')) +
+    ggtitle(ID) +
+    theme(legend.text = element_text(size = 14, color = 'black'),
+          legend.position = "right", legend.justification = "top")+
+    guides(fill = guide_legend(title = element_blank()))+ #paste(state.param[1],state.param[2],state.param[3],state.param[4])))+ #state.param[1:length(state.param)]))) +#, color =guide_legend(title = "Zero Streamflow")) + # element_rect())) +
+    theme(legend.key=element_rect(colour="black",linewidth = 1)) +
+    theme(legend.title = element_blank())+# element_text(size = 14, color = 'black'))+
+
+    geom_point(data =subset(vstates,(flow.14day >0)),aes(x = pairdate, y = flow.14day.normal.time, group = Year, alpha = flow.14day.normal), size = 0.5, shape = 2, show.legend = FALSE) +
+
+    geom_point(data=subset(vstates,(flow.14day == 0)), aes(x = pairdate, y = flow.14day.normal.time, group = Year), color = "#e6550d", size = 1, shape = 45, show.legend = FALSE)
+
+
+  legend <- g_legend(big_tile)
+
+  # ## Calc states NSE, AIC, BFI
+  deltaC = getIndexC(model@input.data,30)#  model@QhatModel.object@deltaC
+  deltaC = sapply(1:NROW(deltaC), function(i) deltaC[i,1]:deltaC[i,2])
+  indC = rep(FALSE,NROW(vstates))
+  indC[unlist(deltaC)] <- TRUE
+
+  NSE = 1- (sum((vstates$`Obs. C`[indC] - vstates$`Viterbi C -50%ile`[indC])^2, na.rm = TRUE) / sum((vstates$`Obs. C`[indC] - mean(vstates$`Viterbi C -50%ile`[indC], na.rm = TRUE))^2, na.rm = TRUE))
+  # BFI filter...
+  baseflow.temp = getBaseflow(model@QhatModel.object, model@input.data)
+  baseflow.one = rep(NA,NROW(baseflow.temp))
+  for(i in 1:NROW(baseflow.temp)){
+    baseflow.one[i] = baseflow.temp[i,as.numeric(vstates$`Viterbi State Number`)[i]]
+  }
+  BFI = sum(baseflow.one, na.rm = TRUE)/sum(model@input.data$flow, na.rm = TRUE)
+
+  if(model@QhatModel.object@nStates > 1){
+
+    small_scatter <- ggplot()+
+      geom_point(vstates, mapping = aes(x = flow, y = `Obs. C`), color = "darkgrey", alpha = 0.5, size = 0.5, show.legend = TRUE) +
+      geom_point(subset(vstates,state_name == "Saltier"), mapping = aes(x = flow, y = `Viterbi C -50%ile`), color = col_vector[["Saltier"]], alpha = 0.5, size = 0.5, show.legend = FALSE) +
+      geom_point(subset(vstates,state_name == "Fresher"), mapping = aes(x = flow, y = `Viterbi C -50%ile`), color = col_vector[["Fresher"]], alpha = 0.5, size = 0.5, show.legend = FALSE) +
+      scale_y_log10(expand = c(0, 0, 0.1, 0),limits = c(min((vstates$`Obs. C`),na.rm = TRUE),max((vstates$`Obs. C`),na.rm = TRUE)),labels = label_math(expr = .x, format = force), name = expression(paste("Salinity"," (mg/L)",sep = ""))) +
+      scale_x_log10(label = label_math(expr = .x, format = force), name = expression(paste("Discharge"," (mm/day)", sep=""))) +
+      theme(legend.text = element_text(size = 14, color = 'black'),
+            legend.position = "left", legend.justification = "bottom") +
+      theme(legend.title = element_blank())+
+      theme_bw() + theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=0.5), panel.grid.major = element_blank(),
+                         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
+                         axis.text = element_text(colour = "black", size = 10),axis.text.y = element_text(angle = 90,vjust = 1, hjust=0.5))+
+      theme(legend.title = element_blank())+
+      ggtitle(substr(ID, start = 1, stop = 7)) +
+
+      annotate("text", x = 10^(min(log10(vstates$flow[vstates$flow>0]), na.rm = TRUE)), y= 10^(min(log10(vstates$`Obs. C`),na.rm = TRUE)), vjust = 0, hjust = 0,
+               label = paste("AIC = ",round(getAIC(model),0), "\n","NSE = ",round(NSE,2),"\n","BFI = ",round(BFI,2), sep=""), size = 5, lineheight = 0.9)
+
+
+  }else{
+
+    small_scatter <- ggplot()+
+      geom_point(vstates, mapping = aes(x = flow, y = `Obs. C`), color = "darkgrey", alpha = 0.5, size = 0.3, show.legend = TRUE) +
+      geom_point(subset(vstates,state_name == "Normal"), mapping = aes(x = flow, y = `Viterbi C -50%ile`), color = col_vector[["Normal"]], alpha = 0.5, size = 0.3, show.legend = FALSE) +
+      scale_y_log10(expand = c(0, 0, 0.1, 0),limits = c(min((vstates$`Obs. C`),na.rm = TRUE),max((vstates$`Obs. C`),na.rm = TRUE)),labels = label_math(expr = .x, format = force), name = expression(paste("Salinity"," (mg/L)",sep = ""))) +
+      scale_x_log10(labels = label_math(expr = .x, format = force), name = expression(paste("Discharge"," (mm/day)", sep=""))) +
+      theme(legend.text = element_text(size = 14, color = 'black'),
+            legend.position = "left", legend.justification = "bottom") +
+      theme(legend.title = element_blank())+
+      theme_bw() + theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=0.5), panel.grid.major = element_blank(),
+                         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"),
+                         axis.text = element_text(colour = "black", size = 10),axis.text.y = element_text(angle = 90,vjust = 1, hjust=0.5))+
+      theme(legend.title = element_blank())+
+      ggtitle(substr(ID, start = 1, stop = 7))+
+
+
+      annotate("text", x = 10^(min(log10(vstates$flow[vstates$flow>0]), na.rm = TRUE)), y= 10^(min(log10(vstates$`Obs. C`),na.rm = TRUE)), vjust = 0, hjust = 0,
+               label = paste("AIC = ",round(getAIC(model),0), "\n","NSE = ",round(NSE,2),"\n","BFI = ",round(BFI,2), sep=""), size = 5, lineheight = 0.9)
+
+
+  }
+
+  if(do.pdf){
+
+    # export as pdf
+    pdf(file = paste(file.location,"/", ID[1:7],"_","tile.pdf",sep=""), width = 11, height = 8.5)
+
+    grid.arrange(big_tile+ theme(legend.position = "none"),legend,para.table,small_scatter, ncol = 2, layout_matrix = cbind(c(1,1,1), c(2,3,4)), widths=c(10, 4))# heights = c(16,2,7,7))
+
+    dev.off()
+
+    return(vstates)
+
+  }else{
+
+    if(CQ.scatter.only == T){
+
+      return(small_scatter)
+
+    }else{
+      grid.arrange(big_tile+ theme(legend.position = "none"),legend,para.table,small_scatter, ncol = 2, layout_matrix = cbind(c(1,1,1), c(2,3,4)), widths=c(10, 4))# heights = c(16,2,7,7))
+
+      return(vstates)
+    }
+  }
+
+
+
+}
+
+#' \code{g_legend}
+#' @export g_legend
+g_legend <- function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
 }
 
 

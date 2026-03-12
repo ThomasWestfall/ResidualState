@@ -72,28 +72,28 @@ setMethod(f="initialize",signature="hydroState",definition=function(.Object, inp
           # Check the input data has columns 'precipitation' and 'flow' and the 'recipitation has no gaps.
           if (!is.data.frame(input.data))
             stop('The input input.data must be a data frame.')
-          if (!any(names(input.data)=='precipitation') & !any(names(input.data)=='residual')){
-              stop('The input input.data must contain the column "precipitation" or "residual".')
-          }
-          if (!any(names(input.data)=='flow'))
-            stop('The input input.data must contain the column "flow".')
+          # if (!any(names(input.data)=='ind.variable')){
+          #     stop('The input input.data must contain the column "ind.variable".')
+          # }
+          if (!any(names(input.data)=='dep.variable'))
+            stop('The input input.data must contain the column "dep.variable".')
           if (!any(names(input.data)=='year'))
             stop('The input input.data must contain the column "year".')
 
           # if (length(diff(which(!is.finite(input.data$precipitation)))) >= 1)
           #   message(paste('The independent varaible (precip.) contains gaps at ', sum(!is.finite(input.data$precipitation)), ' timesteps.',' Model built ignoring gaps.',sep=""))
 
-          if (all(!is.finite(input.data$flow)))
-            stop('The input input.data$flow does not contain any finite values".')
+          if (all(!is.finite(input.data$dep.variable)))
+            stop('The input input.data$dep.variable does not contain any finite values".')
 
           if (max(diff(unique(input.data$year)), na.rm = TRUE) !=1){
             message(paste('There are ',sum(ifelse(diff(na.omit(unique(input.data$year))) !=1, diff(na.omit(unique(input.data$year))), 0)), ' years missing.',' Model built ignoring missing years.', sep=""))
           }
 
-          if (any(!is.numeric(input.data$flow)))
-            stop('The input input.data$flow must contain only numeric data.')
-          if (any(!is.numeric(input.data$precipitation)) & any(!is.numeric(input.data$residual)))
-            stop('The input input.data$precipitation or input.data$residual must contain only numeric data.')
+          if (any(!is.numeric(input.data$dep.variable)))
+            stop('The input input.data$dep.variable must contain only numeric data.')
+          # if (any(!is.numeric(input.data$ind.variable)))
+          #   stop('The input input.data$ind.variable must contain only numeric data.')
 
           .Object@input.data = input.data
           .Object@Qhat.object = Qhat.object
@@ -541,8 +541,8 @@ setMethod(f = "fit",signature="hydroState",definition=function(.Object,
 
 
 # @exportMethod setStateNames
-setGeneric(name="setStateNames",def=function(.Object, year.normalFlow) {standardGeneric("setStateNames")})
-setMethod(f="setStateNames",signature=c("hydroState","numeric"),definition=function(.Object, year.normalFlow)
+setGeneric(name="setStateNames",def=function(.Object, year.normal.dep.variable) {standardGeneric("setStateNames")})
+setMethod(f="setStateNames",signature=c("hydroState","numeric"),definition=function(.Object,year.normal.dep.variable)
 {
 
   if (!validObject(.Object))
@@ -552,33 +552,69 @@ setMethod(f="setStateNames",signature=c("hydroState","numeric"),definition=funct
   states.viterbi <- viterbi(.Object, do.plot=F, plot.options = c("A","B","C","D"))
 
   # Find the year defining normal flow and precipitation.
-  for (i in 1:length(year.normalFlow)) {
-    filt = states.viterbi[,1] == year.normalFlow[i];
+  for (i in 1:length(year.normal.dep.variable)) {
+    filt = states.viterbi[,1] == year.normal.dep.variable[i];
 
     if (!any(is.na(states.viterbi[filt,'Viterbi State Number']))){
       states.viterbi <- states.viterbi[filt,]
-      year.normalFlow = year.normalFlow[i]
+      year.normal.dep.variable = year.normal.dep.variable[i]
       break
     }
   }
 
+  # only if have indendent variable
+  if(any(names(.Object@input.data)=="ind.variable")){
 
-  # Assess if the model has a monthly or annal time step and get the
-  # 'normal' precipitation. If the monthly, then
-  # the monthly precip will be taken rather than the annual average.
-  year.filt = .Object@input.data$year ==year.normalFlow
-  if (any(names(.Object@input.data)=="month")) {
-    is.monthly = T
-    Pavg = cbind(.Object@input.data$year[year.filt], .Object@input.data$month[year.filt], .Object@input.data$precipitation[year.filt])
-  } else {
-    is.monthly = F
-    Pavg = c(year.normalFlow, .Object@input.data$precipitation[year.filt])
+    # Assess if the model has a monthly or annal time step and get the
+    # 'normal' precipitation. If the monthly, then
+    # the monthly precip will be taken rather than the annual average.
+    year.filt = .Object@input.data$year ==year.normal.dep.variable
+    if (any(names(.Object@input.data)=="day")) {
+      is.daily = T
+      is.monthly = F
+      Pavg = cbind(.Object@input.data$year[year.filt], .Object@input.data$month[year.filt], .Object@input.data$day[year.filt], .Object@input.data$ind.variable[year.filt])
+    }else if (any(names(.Object@input.data)=="month")) {
+      is.monthly = T
+      is.daily = F
+      Pavg = cbind(.Object@input.data$year[year.filt], .Object@input.data$month[year.filt], .Object@input.data$ind.variable[year.filt])
+    }else {
+      is.monthly = F
+      is.daily = F
+      Pavg = c(year.normal.dep.variable, .Object@input.data$ind.variable[year.filt])
+    }
+  }else{
+
+    # Assess if the model has a monthly or annal time step and get the
+    # 'normal' precipitation. If the monthly, then
+    # the monthly precip will be taken rather than the annual average.
+    year.filt = .Object@input.data$year ==year.normal.dep.variable
+    if (any(names(.Object@input.data)=="day")) {
+      is.daily = T
+      is.monthly = F
+      Qavg = cbind(.Object@input.data$year[year.filt], .Object@input.data$month[year.filt], .Object@input.data$day[year.filt], .Object@input.data$dep.variable[year.filt])
+    }else if (any(names(.Object@input.data)=="month")) {
+      is.monthly = T
+      is.daily = F
+      Qavg = cbind(.Object@input.data$year[year.filt], .Object@input.data$month[year.filt], .Object@input.data$dep.variable[year.filt])
+    }else {
+      is.monthly = F
+      is.daily = F
+      Qavg = c(year.normal.dep.variable, .Object@input.data$dep.variable[year.filt])
+    }
+
   }
 
-  # If monthly, get the most frequent state for the months of the year.
+  # If monthly or daily, get the most frequent state for the months of the year.
   if (is.monthly) {
-    states.viterbi = c(year.normalFlow, as.numeric(names(sort(table(states.viterbi[,3]),decreasing=TRUE)[1])))
+    if(length(states.viterbi) > 4){
+      states.viterbi = c(year.normal.dep.variable, as.numeric(names(sort(table(states.viterbi[,3]),decreasing=TRUE)[1])))
+    }else{
+      states.viterbi = c(year.normal.dep.variable, as.numeric(names(sort(table(states.viterbi[,3]),decreasing=TRUE)[1])))
+    }
+  } else if (is.daily) {
+    states.viterbi = c(year.normal.dep.variable, as.numeric(names(sort(table(states.viterbi[,4]),decreasing=TRUE)[1])))
   }
+
 
   # Derive the Qhat value at each state at the precip defined as a normal year.
   # To achieve this the input data precipitation is replaced by the above mean. This is
@@ -586,39 +622,84 @@ setMethod(f="setStateNames",signature=c("hydroState","numeric"),definition=funct
   # rather than a time-series, eg those wih serial correlation.
   #-----------
 
-  # Assign normal precip conditions to all obs data
-  data  = .Object@input.data
-  data = getQhat(.Object@Qhat.object, .Object@input.data)
-  Qhat = data$Qhat.flow
-  if (is.monthly) {
-    for (i in 1:nrow(Pavg)) {
-     filt = data$month == Pavg[i,2]
-     data$precipitation[filt] = Pavg[i,3]
+  # Assign normal precip conditions to all obs data if have ind. var. else dep.
+    data  = .Object@input.data
+    data = getQhat(.Object@Qhat.object, .Object@input.data)
+
+    if(any(names(.Object@input.data)=="ind.variable")){
+        Qhat = data$Qhat.dep.variable
+        if (is.monthly) {
+          for (i in 1:nrow(Pavg)) {
+            filt = data$month == Pavg[i,2]
+            data$ind.variable[filt] = Pavg[i,3]
+          }
+        }else if (is.daily) {
+
+          data$ind.variable[1:NROW(Pavg)] = Pavg[,4]
+          # }
+        } else {
+          data$ind.variable = Pavg[2]
+        }
+    }else{
+      Qhat = data$Qhat.dep.variable
+      if (is.monthly) {
+        for (i in 1:nrow(Qavg)) {
+          filt = data$month == Qavg[i,2]
+          data$dep.variable[filt] = Qavg[i,3]
+        }
+      }else if (is.daily) {
+
+        data$dep.variable[1:NROW(Qavg)] = Qavg[,4]
+        # }
+      } else {
+        data$dep.variable = Qavg[2]
+      }
+
     }
-  } else {
-    data$precipitation = Pavg[2]
-  }
 
   # get number of states
   nStates = getNumStates(.Object@markov.model.object)
 
   # Get the MEDIAN QhatModel value of Qhat at normal precip and at the normal year
+  # print("getDistributionPercentiles(.Object@QhatModel.object, data, 0.5)")
+  # print(getDistributionPercentiles(.Object@QhatModel.object, data, 0.5))
   state.est <- getDistributionPercentiles(.Object@QhatModel.object, data, 0.5)
   state.est <- state.est[[1]]
-  state.est = state.est[year.filt,]
+  state.est <- state.est[year.filt,]
+
+  # if originial hydroStateWQ, Qhat, can do colsums, but not for anything else...
+  # this needs to be addressed for V2.0 hydroStateWQ
+  # JUST TAKE MEDIAN, NO MATTER THE TIME-STEP! THIS DIFFERS FROM classic hydroState
   if (is.monthly) {
     if (nStates==1) {
-      state.est = sum(state.est)
+      state.est = mean(state.est,na.rm = TRUE)
+    }else{
+      if(!is.null(nrow(state.est))){
+        state.est = colMeans(state.est, na.rm = TRUE)
+      }else{
+        state.est = state.est #if only one month in first year, just use that month to assign states
+      }
+    }
+  } else if (is.daily) {
+    if (nStates==1) {
+      state.est = mean(state.est,na.rm = TRUE)
     } else {
-      state.est = colSums(state.est, na.rm = TRUE)
+      state.est = colMeans(state.est, na.rm = TRUE)
     }
   }
-  states.normal <- states.viterbi[[2]]
+
+  # get last value, becuase last valeus is state number...
+  # had to change because inputting more than one year as normal year..
+  # determining mean for salinity for both states, and taking the most
+  # frequent as normal...
+  states.normal <- states.viterbi[[length(states.viterbi)]]
+
   state.est.normal <- state.est[states.normal]
 
   # Assign names to the states!
   .Object@state.labels = vector("character",nStates)
   .Object@state.labels[states.normal] = 'Normal'
+
   for (i in 1:nStates) {
 
     if (i==states.normal)
@@ -776,29 +857,33 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
             if (any(names(data)=="month")) {
               obsDates.asISO = as.Date(ISOdate(data$year,data$month,1))
               obsDates = cbind(data$year,data$month)
-              obsDates.Precip.asISO = as.Date(ISOdate(.Object@input.data$year,.Object@input.data$month,1))
+              obsDates.ind.variable.asISO = as.Date(ISOdate(.Object@input.data$year,.Object@input.data$month,1))
               plot.units = 'month'
             } else {
               obsDates.asISO = as.Date(ISOdate(data$year,1,1))
               obsDates = data$year
-              obsDates.Precip.asISO = as.Date(ISOdate(.Object@input.data$year,1,1))
+              obsDates.ind.variable.asISO = as.Date(ISOdate(.Object@input.data$year,1,1))
               plot.units = 'year'
             }
 
             # message(obsDates.Precip.asISO[1:27])
             # Get the transformed flow, Qhat
-            if (!any(names(data)=='Qhat.flow'))
-              stop('Input "data" must contain a column named "Qhat.flow".')
+            if (!any(names(data)=='Qhat.dep.variable'))
+              stop('Input "data" must contain a column named "Qhat.dep.variable".')
 
             data.withNAs <- data
-            Qhat = data$Qhat.flow
+            Qhat = data$Qhat.dep.variable
             nQhat = length(Qhat)
 
             # get number of states
             nStates = getNumStates(.Object@markov.model.object)
 
             # Built filter for non NAs.
-            filt <- !is.na(data$Qhat.flow)&!is.na(data$Qhat.precipitation)
+            if(any(names(data) == "ind.variable")){
+              filt <- !is.na(data$Qhat.dep.variable)&!is.na(data$Qhat.ind.variable)
+            }else{
+              filt <- !is.na(data$Qhat.dep.variable)
+            }
 
             # Exit if modle has one state
             if (nStates==1) {
@@ -808,14 +893,14 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 results <- matrix(NA,length(filt), 3)
                 results[,1] <- obsDates
                 results[filt,2] <-viterbiPath[filt]
-                results[,3] <-data$flow
-                colnames(results) <- c('Year','Viterbi State Number', 'Obs. flow')
+                results[,3] <-data$dep.variable
+                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable')
               } else {
                 results <- matrix(NA,length(filt), 4)
                 results[,1:2] <- obsDates
                 results[filt,3] <-viterbiPath[filt]
-                results[,4] <-data$flow
-                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. flow')
+                results[,4] <-data$dep.variable
+                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. dep.variable')
               }
             } else {
               # Get transition probs.
@@ -925,7 +1010,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
               }
 
               # Create an index for if the catchment is in a normal flow state.
-              ind.flow.normal <- viterbiPath==ind.stateNames.normal
+              index.dep.normal <- viterbiPath==ind.stateNames.normal
 
               # Extract the percentile Qhat values for each percentile and each time step
               viterbi.est =matrix(0, nQhat,3)
@@ -936,19 +1021,19 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 }
               }
 
-              # Back Transform Qhat models estimates to flow
-              flow.viterbi.est =matrix(0, nQhat,3)
-              flow.normal.est =matrix(0, nQhat,3)
+              # Back Transform Qhat models estimates to dep.variable
+              dep.viterbi.est =matrix(0, nQhat,3)
+              dep.normal.est =matrix(0, nQhat,3)
               for (i in 1:length(plot.percentiles)) {
                 data.tmp <- data.withNAs;
-                data.tmp$Qhat.flow <- NA
-                data.tmp$Qhat.flow[filt] = viterbi.est[,i]
-                flow.viterbi.est[,i] <- getQ.backTransformed(.Object@Qhat.object,data.tmp)$flow.modelled[filt]
+                data.tmp$Qhat.dep.variable <- NA
+                data.tmp$Qhat.dep.variable[filt] = viterbi.est[,i]
+                dep.viterbi.est[,i] <- getQ.backTransformed(.Object@Qhat.object,data.tmp)$dep.variable.modelled[filt]
 
                 data.tmp <- data.withNAs;
-                data.tmp$Qhat.flow <- NA
-                data.tmp$Qhat.flow[filt] = state.est.normal[,i]
-                flow.normal.est[,i] <- getQ.backTransformed(.Object@Qhat.object,data.tmp)$flow.modelled[filt]
+                data.tmp$Qhat.dep.variable <- NA
+                data.tmp$Qhat.dep.variable[filt] = state.est.normal[,i]
+                dep.normal.est[,i] <- getQ.backTransformed(.Object@Qhat.object,data.tmp)$dep.variable.modelled[filt]
               }
 
               # Get the conditional probabilities.
@@ -960,26 +1045,26 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 results <- matrix(NA,length(filt), 9+2*nStates)
                 results[,1] <- obsDates.withNAs
                 results[filt,2] <-viterbiPath
-                results[,3] <-data.withNAs$flow
-                results[filt,4:9] <- cbind(flow.viterbi.est, flow.normal.est)
+                results[,3] <-data.withNAs$dep.variable
+                results[filt,4:9] <- cbind(dep.viterbi.est, dep.normal.est)
                 results[filt, 10:(10+nStates-1)] = t(state.probs)
                 results[filt, (10+nStates):(10+2*nStates-1)] = t(emissionProbs[filt,])
-                colnames(results) <- c('Year','Viterbi State Number', 'Obs. flow',
-                                       paste('Viterbi Flow -',plot.percentiles*100,'%ile',sep=''),
-                                       paste('Normal State Flow-',plot.percentiles*100,'%ile',sep=''),
+                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable',
+                                       paste('Viterbi dep.variable -',plot.percentiles*100,'%ile',sep=''),
+                                       paste('Normal State dep.variable -',plot.percentiles*100,'%ile',sep=''),
                                        paste('Conditional Prob.-',.Object@state.labels,sep=''),
                                        paste('Emission Density-',.Object@state.labels,sep=''))
               } else {
                 results <- matrix(NA,length(filt), 10+2*nStates)
                 results[,1:2] <- obsDates.withNAs
                 results[filt,3] <-viterbiPath
-                results[,4] <-data.withNAs$flow
-                results[filt,5:10] <- cbind(flow.viterbi.est, flow.normal.est)
+                results[,4] <-data.withNAs$dep.variable
+                results[filt,5:10] <- cbind(dep.viterbi.est, dep.normal.est)
                 results[filt, 11:(11+nStates-1)] = t(state.probs)
                 results[filt, (11+nStates):(11+2*nStates-1)] = t(emissionProbs[filt,])
-                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. flow',
-                                       paste('Viterbi Flow -',plot.percentiles*100,'%ile',sep=''),
-                                       paste('Normal State Flow -',plot.percentiles*100,'%ile',sep=''),
+                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. dep.variable',
+                                       paste('Viterbi dep.variable -',plot.percentiles*100,'%ile',sep=''),
+                                       paste('Normal State dep.variable -',plot.percentiles*100,'%ile',sep=''),
                                        paste('Conditional Prob.-',.Object@state.labels,sep=''),
                                        paste('Emission Density-',.Object@state.labels,sep=''))
               }
@@ -990,14 +1075,14 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 results <- matrix(NA,length(filt), 3)
                 results[,1] <- obsDates
                 results[filt,2] <-viterbiPath[filt]
-                results[,3] <-data$flow
-                colnames(results) <- c('Year','Viterbi State Number', 'Obs. flow')
+                results[,3] <-data$dep.variable
+                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable')
               } else {
                 results <- matrix(NA,length(filt), 4)
                 results[,1:2] <- obsDates
                 results[filt,3] <-viterbiPath[filt]
-                results[,4] <-data$flow
-                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. flow')
+                results[,4] <-data$dep.variable
+                colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. dep.variable')
               }
             }
 
@@ -1033,7 +1118,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
               # Derive a matrix for the start and end of each bar for the plotting of the range in the percentiles
               line.matrix <- cbind(viterbi.est[,1], viterbi.est[,3])
-              flow.line.matrix <- cbind(flow.viterbi.est[,1], flow.viterbi.est[,3])
+              flow.line.matrix <- cbind(dep.viterbi.est[,1], dep.viterbi.est[,3])
 
               # Get input grapics settings
               op <- par(no.readonly = T)
@@ -1058,9 +1143,9 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
 
               # Calc axis limits.
-              ylim.flow <- c(0, ceiling(max( c(max(data$flow,na.rm=T),max(flow.viterbi.est,na.rm=T)))))
-              ylim.precip.max = max(ylim.flow)*3
-              ylim.precip <- c(-ylim.precip.max,0)
+              ylim.dep.variable <- c(0, ceiling(max( c(max(data$dep.variable,na.rm=T),max(dep.variable.viterbi.est,na.rm=T)))))
+              ylim.ind.variable.max = max(ylim.dep.variable)*3
+              ylim.ind.variable <- c(-ylim.ind.variable.max,0)
 
               # Setup year range for plotitng
               if (length(plot.yearRange)==2 && all(is.numeric(plot.yearRange)) && all(plot.yearRange>0) && all(plot.yearRange<=as.numeric(format(Sys.Date(), "%Y")))) {
@@ -1087,16 +1172,16 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 }
                 # Plot obs precip
 
-                pframe = padr::pad(data.frame(obsDates.Precip.asISO, .Object@input.data$precipitation), interval = plot.units)
+                pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, .Object@input.data$ind.variable), interval = plot.units)
                 if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
                   if(with(rle(data$year), max(lengths)) <= 4){
-                    pframe$.Object.input.data.precipitation = zoo::na.approx(object = replace(pframe$.Object.input.data.precipitation, is.na(pframe$.Object.input.data.precipitation), NA), maxgap = 2)
+                    pframe$.Object.input.data.ind.variable = zoo::na.approx(object = replace(pframe$.Object.input.data.ind.variable, is.na(pframe$.Object.input.data.ind.variable), NA), maxgap = 2)
                   }
                 }
 
                 plot(pframe, type="s",col='grey', lwd=1,
                      xlim=xlim, xlab='', ylab='', main='', xaxt='n')
-                mtext("Precip.",side=2,line=3, cex = 0.7)
+                mtext("Independent Variable.",side=2,line=3, cex = 0.7)
                 mtext(paste("[mm/",plot.units,"]",sep=''),side=2,line=2, cex=0.6)
 
                 xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))
@@ -1116,14 +1201,14 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 }
 
                 # Plot obs flow
-                pframe = padr::pad(data.frame(obsDates.Precip.asISO, data.withNAs$flow), interval = plot.units)
+                pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data.withNAs$dep.variable), interval = plot.units)
                 if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
                   if(with(rle(data$year), max(lengths)) <= 4){
-                    pframe$data.withNAs.flow = zoo::na.approx(object = replace(pframe$data.withNAs.flow, is.na(pframe$data.withNAs.flow), NA), maxgap = 2)
+                    pframe$data.withNAs.dep.variable = zoo::na.approx(object = replace(pframe$data.withNAs.dep.variable, is.na(pframe$data.withNAs.dep.variable), NA), maxgap = 2)
                   }
                 }
 
-                plot(pframe, type="l", col='grey', lwd=1, ylim=ylim.flow, xlim=xlim,
+                plot(pframe, type="l", col='grey', lwd=1, ylim=ylim.dep.variable, xlim=xlim,
                      xlab='', ylab='',xaxt='n')
                 # ryticks.min = signif(1.2*max(data$precipitation,na.rm=T),1)
                 # ryticks = seq(-ryticks.min, 0, by=signif(ryticks.min/2,1))
@@ -1139,19 +1224,19 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
                 # Plot Markov states as boxes
                 for (i in 1:nQhat) {
-                  points(obsDates.asISO[i], flow.viterbi.est[i,2],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
-                  lines(rep(obsDates.asISO[i],2), flow.line.matrix[i,],col=state.colours[viterbiPath[i]], lwd=1)
+                  points(obsDates.asISO[i], dep.viterbi.est[i,2],col=state.colours[viterbiPath[i]], bg=state.colours[viterbiPath[i]], pch=21)
+                  lines(rep(obsDates.asISO[i],2), dep.line.matrix[i,],col=state.colours[viterbiPath[i]], lwd=1)
 
                   # Plot the normal flow in years when the Viterbi state is not normal.
-                  if (!ind.flow.normal[i]) {
-                    points(obsDates.asISO[i], flow.normal.est[i,2],col=state.colours.all[3], bg=state.colours.all[3], pch=1)
-                    lines(rep(obsDates.asISO[i],2), c(flow.normal.est[i,1],flow.normal.est[i,3]),col=state.colours.all[3], lwd=1, lty=1)
+                  if (!index.dep.normal[i]) {
+                    points(obsDates.asISO[i], dep.normal.est[i,2],col=state.colours.all[3], bg=state.colours.all[3], pch=1)
+                    lines(rep(obsDates.asISO[i],2), c(dep.normal.est[i,1],dep.normal.est[i,3]),col=state.colours.all[3], lwd=1, lty=1)
                   }
                 }
 
 
                 # Add axis labels and legend
-                mtext("Flow",side=2,line=3, cex = 0.7)
+                mtext("Dependent Variable",side=2,line=3, cex = 0.7)
                 mtext(paste("[mm/",plot.units,"]"),side=2,line=2, cex=0.6)
                 #mtext('Year',side=1,line=2)
                 #legend('topleft', legend=.Object@state.labels, pch=21, col=state.colours, pt.bg=state.colours, xjust=0)
@@ -1164,7 +1249,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 grid(NA,NULL)
 
                 if(tail(plot.options, n=1) =="B"){
-                  legend('topleft', legend=c('Obs. flow',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
+                  legend('topleft', legend=c('Obs. dep.variable',paste(.Object@state.labels,' (5th - 50th - 95th)',sep=''),'Est. normal (5th - 50th - 95th)'),
                          lty=c(1,1,1,1),lwd=1,pch=c(NA,21,21,1), col=c('grey',state.colours,state.colours.all[3]),
                          pt.bg=c(NA,state.colours,NA), xjust=0, cex=1.3, bg='transparent')
                 }else{
@@ -1182,14 +1267,14 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                   par(mar = c(4,5,0.2,5))
                 }
                 # Calc axis limits.
-                ylim.qhat <- c(floor(min( c(min(data$Qhat.flow,na.rm=T),min(viterbi.est,na.rm=T)))) ,
-                               ceiling(max( c(max(data$Qhat.flow,na.rm=T),max(viterbi.est,na.rm=T)))))
+                ylim.qhat <- c(floor(min( c(min(data$Qhat.dep.variable,na.rm=T),min(viterbi.est,na.rm=T)))) ,
+                               ceiling(max( c(max(data$Qhat.dep.variable,na.rm=T),max(viterbi.est,na.rm=T)))))
 
                 # Plot obs Qhat
-                pframe = padr::pad(data.frame(obsDates.Precip.asISO, data$Qhat.flow), interval = plot.units)
+                pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data$Qhat.dep.variable), interval = plot.units)
                 if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
                   if(with(rle(data$year), max(lengths)) <= 4){
-                    pframe$data.Qhat.flow = zoo::na.approx(object = replace(pframe$data.Qhat.flow, is.na(pframe$data.Qhat.flow), NA), maxgap = 2)
+                    pframe$data.Qhat.dep.variable = zoo::na.approx(object = replace(pframe$data.Qhat.dep.variable, is.na(pframe$data.Qhat.dep.variable), NA), maxgap = 2)
                   }
                 }
 
@@ -1203,7 +1288,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 }
 
                 # Add axis labels
-                mtext("Transformed flow",side=2,line=3, cex = 0.7)
+                mtext("Transformed dep.variable",side=2,line=3, cex = 0.7)
                 mtext(paste("[f(mm) /",plot.units,"]"),side=2,line=2, cex=0.6)
                 # mtext('Year',side=1,line=2)
                 xaxis.ticks = as.Date(ISOdate(seq(min(data$year, na.rm = TRUE),max(data$year, na.rm = TRUE),by=10),1,1))

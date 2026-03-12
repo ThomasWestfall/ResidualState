@@ -16,7 +16,7 @@ Qhat.none <- setClass(
 
   # Set the default values for the slots. (optional)
   prototype=list(
-    input.data = data.frame(year=c(0),month=c(0),precipitation=c(0)),
+    input.data = data.frame(year=c(0),month=c(0),ind.variable=c(0)),
     parameters= new('parameters',c(),c())
   )
 
@@ -40,15 +40,9 @@ setMethod(f="getQhat",signature=c("Qhat.none",'data.frame'),definition=function(
   if (!is.data.frame(data))
     stop('"data" must be a data.frame.')
 
-  if('precipitation' %in% colnames(data)){
-    data$Qhat.flow <- data$flow
-    data$Qhat.precipitation <- data$precipitation
-  }
 
-  if('residual' %in% colnames(data)){
-    data$Qhat.residual <- data$residual
-    data$Qhat.flow <- data$flow
-  }
+    data$Qhat.dep.variable <- data$dep.variable
+    data$Qhat.ind.variable <- data$ind.variable
 
 
   return(data)
@@ -71,7 +65,7 @@ setMethod(f="getQ.backTransformed",signature=c("Qhat.none",'data.frame'),definit
   if (!is.data.frame(data))
     stop('"Data" must be a data.frame.')
 
-  data$flow.modelled <- data$Qhat.flow
+  data$dep.variable.modelled <- data$Qhat.dep.variable
   return(data)
 }
 )

@@ -17,7 +17,7 @@ Qhat.boxcox <- setClass(
 
   # Set the default values for the slots. (optional)
   prototype=list(
-    input.data = data.frame(year=c(0),month=c(0),precipitation=c(0)),
+    input.data = data.frame(year=c(0),month=c(0),ind.variable=c(0)),
     parameters= new('parameters',c('lambda'),c(1))
   )
 )
@@ -49,11 +49,11 @@ setMethod(f="getQhat",signature=c("Qhat.boxcox",'data.frame'),definition=functio
             parameters = getParameters(.Object@parameters)
 
             if (parameters$lambda>1e-8) {
-              data$Qhat.flow <- ((data$flow+1)^parameters$lambda-1)/parameters$lambda
+              data$Qhat.dep.variable <- ((data$dep.variable+1)^parameters$lambda-1)/parameters$lambda
             } else {
-              data$Qhat.flow <- log(data$flow +1)
+              data$Qhat.dep.variable <- log(data$dep.variable +1)
             }
-            data$Qhat.precipitation <- data$precipitation
+            data$Qhat.ind.variable <- data$ind.variable
 
             return(data)
           }
@@ -77,9 +77,9 @@ setMethod(f="getQ.backTransformed",signature=c("Qhat.boxcox",'data.frame'),defin
   parameters = getParameters(.Object@parameters)
 
   if (parameters$lambda>1e-8) {
-    data$flow.modelled <- ( data$Qhat.flow * parameters$lambda + 1) ^ (1/parameters$lambda)-1
+    data$dep.variable.modelled <- ( data$Qhat.dep.variable * parameters$lambda + 1) ^ (1/parameters$lambda)-1
   } else {
-    data$flow.modelled <- exp(data$Qhat.flow)-1
+    data$dep.variable.modelled <- exp(data$Qhat.dep.variable)-1
   }
   return(data)
 }

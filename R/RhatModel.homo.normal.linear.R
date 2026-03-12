@@ -19,7 +19,7 @@ RhatModel.homo.normal.linear <- setClass(
 
   # Set the default values for the slots. (optional)
   prototype=list(
-    input.data = data.frame(year=c(0),month=c(0),residual=c(0)),
+    input.data = data.frame(year=c(0),month=c(0),ind.variable=c(0)),
     nStates = Inf,
     use.truncated.dist=T,
     parameters = new('parameters',c('mean.a0','mean.trend', 'std.a0', 'std.a1'),c(1,1,1,1)),
@@ -96,7 +96,7 @@ setMethod(f="getMean",signature=c("RhatModel.homo.normal.linear","data.frame"),d
   if ('mean.trend' %in% names(parameters)) {
     ncols.trend = length(parameters$mean.trend)
   }
-  nrows = length(data$Qhat.residual);
+  nrows = length(data$Qhat.dep.variable);
   ncols.max = max(c(ncols.a0, ncols.trend))
 
   if (ncols.max > .Object@nStates)
@@ -131,7 +131,7 @@ setMethod(f="getMean",signature=c("RhatModel.homo.normal.linear","data.frame"),d
   # yq.est = 10^yq.est
   a0.est = a0.est
 
-  # just residuals
+  # just residuals  (dep.variable)
   Qhat.model <- a0.est
 
   # print(paste('...DBG getMean.AR0 nrows Qhat.model.NAs:',nrow(Qhat.model)))
@@ -148,21 +148,21 @@ setMethod(f="getVariance",signature=c("RhatModel.homo.normal.linear","data.frame
   parameters = getParameters(.Object@parameters)
 
   ncols.a0 = length(parameters$std.a0)
-  nrows = length(data$Qhat.residual);
+  nrows = length(data$Qhat.dep.variable);
 
   if ('std.a1' %in% names(parameters)){
     ncols.a1 = length(parameters$std.a1)
-    nrows = length(data$Qhat.flow);
+    nrows = length(data$Qhat.dep.variable);
   } else {
     ncols.a1=0
   }
 
   # Get variance of the Qhat
-  Qhat.var = var(data$Qhat.residual, na.rm=T)
+  Qhat.var = var(data$Qhat.dep.variable, na.rm=T)
 
   if (ncols.a1 >0){
     a0.est = Qhat.var * matrix(rep(parameters$std.a0,each=nrows),nrows,.Object@nStates) +
-      matrix(rep(parameters$std.a1,each=nrows),nrows,.Object@nStates) * data$Qhat.flow;
+      matrix(rep(parameters$std.a1,each=nrows),nrows,.Object@nStates) * data$Qhat.ind.variable;
   }else{
     a0.est = Qhat.var * matrix(rep(parameters$std.a0,each=nrows),nrows,.Object@nStates)
   }
@@ -183,8 +183,8 @@ setMethod(f="getEmissionDensity",
             # print('getEmissionDensity')
             # browse()
             # Check Qhat is in data
-            if (!any(names(data)=="Qhat.residual"))
-              stop('Input "data" must be a a data frame with a variable named "Qhat.flow".')
+            if (!any(names(data)=="Qhat.dep.variable"))
+              stop('Input "data" must be a a data frame with a variable named "Qhat.dep.variable".')
 
             # if (!any(names(data)=="Qhat.precipitation"))
             #   stop('Input "data" must be a a data frame with a variable named "Qhat.precipitation".')
@@ -239,7 +239,7 @@ setMethod(f="getEmissionDensity",
               }
             } else {
               for (i in 1:.Object@nStates) { # 'a' is the lower limit of the truncated normal distribution, making -Inf for residual analysis
-                P[,i] = dtruncnorm(data$Qhat.residual, a=-Inf, mean=markov.mean[,i], sd=markov.stds[,i])
+                P[,i] = dtruncnorm(data$Qhat.dep.variable, a=-Inf, mean=markov.mean[,i], sd=markov.stds[,i])
                 # print("data$Qhat.C")
                 # print(head(data$Qhat.C))
                 # print('dtruncnorm P[,i]')
@@ -266,8 +266,8 @@ setMethod(f="getDistributionPercentiles",
               stop('Input "data" must be a a data frame.')
 
             # Check Qhat is in data
-            if (!any(names(data)=="Qhat.residual"))
-              stop('Input "data" must be a a data frame with a variable named "Qhat.residual".')
+            if (!any(names(data)=="Qhat.dep.variable"))
+              stop('Input "data" must be a a data frame with a variable named "Qhat.dep.variable".')
 
             # Get the moments
             markov.mean = getMean(.Object, data)

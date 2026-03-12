@@ -248,14 +248,13 @@ setMethod(f="getLogLikelihood", signature=c("markov.annualHomogeneous","data.fra
             nStates = getNumStates(.Object)
 
             # Check required fields exist
-            if (any(names(data)=='Qhat.flow') & any(names(data)=='Qhat.precipitation')){
-
+            if (any(names(data)=='Qhat.dep.variable') & any(names(data)=='Qhat.ind.variable')){
               # Built filter for non NAs.
-              filt <- is.finite(data$Qhat.flow)&is.finite(data$Qhat.precipitation)
+              filt <- is.finite(data$Qhat.dep.variable)&is.finite(data$Qhat.ind.variable)
             }
 
-            if (any(names(data)=='Qhat.residual')){
-              filt <- is.finite(data$Qhat.residual)
+            if (any(names(data)=='Qhat.dep.variable')){
+              filt <- is.finite(data$Qhat.dep.variable)
             }
 
 
@@ -346,13 +345,9 @@ setMethod(f="getLogForwardProbabilities", signature=c("markov.annualHomogeneous"
             # Get number of states
             nStates = getNumStates(.Object)
 
-            # Built filter for non NAs.
-            if (any(names(data)=='Qhat.flow') & any(names(data)=='Qhat.precipitation')){
-              filt <- !is.na(data$Qhat.flow)
-            }
 
-            if (any(names(data)=='Qhat.residual')){
-              filt <- !is.na(data$Qhat.residual)
+            if (any(names(data)=='Qhat.dep.variable')){
+              filt <- !is.na(data$Qhat.dep.variable)
             }
 
 
@@ -402,12 +397,12 @@ setMethod(f="getLogBackwardProbabilities", signature=c("markov.annualHomogeneous
             nStates = getNumStates(.Object)
 
             # Built filter for non NAs.
-            if (any(names(data)=='Qhat.flow') & any(names(data)=='Qhat.precipitation')){
-              filt <- !is.na(data$Qhat.flow)
+            if (any(names(data)=='Qhat.dep.variable') & any(names(data)=='Qhat.ind.variable')){
+              filt <- !is.na(data$Qhat.dep.variable)
             }
 
-            if (any(names(data)=='Qhat.residual')){
-              filt <- !is.na(data$Qhat.residual)
+            if (any(names(data)=='Qhat.dep.variable')){
+              filt <- !is.na(data$Qhat.dep.variable)
             }
 
             # Handle 1 state model.
