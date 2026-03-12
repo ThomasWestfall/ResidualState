@@ -41,10 +41,10 @@ This example imports a dataframe from the output of the C-Q model with actual co
 gaugeID = "234201B"
 
 # Load
-Residuals.daily_234201B = hydroState::Residual.daily_234201B
+Residual.daily = hydroState::Residual.daily_234201B
 
 # Check input data
-head(Residuals.daily_234201B)
+head(Residuals.daily)
 
 #>  year month day   residual        flow    sim.C    obs.C      flow.s    dtime  yearmonth
 #> 1993     5  14 -0.2787168 0.007035374 2998.147 3961.851 0.007035374 1993.364 1993-05-01
@@ -58,17 +58,17 @@ head(Residuals.daily_234201B)
 ## Calculate residuals (if needed)
 ```r
 # Residuals in natural log space
-Residuals.daily_234201B$residuals = log(Residual.daily_234201B$sim.C) - log(Residual.daily_234201B$obs.C)
+Residual.daily$residuals = log(Residual.daily$sim.C) - log(Residual.daily$obs.C)
 ```
 
 ## Create monthly dataframe (if needed)
 ```r
 # Create year-month column
-Residual.monthly_234201B =  Residual.daily_234201B  %>%
+Residual.monthly =  Residual.daily  %>%
     mutate(yearmonth = lubridate::make_date(year,month))
 
 # Aggregate daily data into monthly data by taking the mean of the residual and sum of flow
-Residual.monthly_234201B = Residual.monthly_234201B %>% group_by(yearmonth = yearmonth) %>%
+Residual.monthly = Residual.monthly %>% group_by(yearmonth = yearmonth) %>%
     summarize(
               year = mean(year),
               month = mean(month),
@@ -79,10 +79,10 @@ Residual.monthly_234201B = Residual.monthly_234201B %>% group_by(yearmonth = yea
               )
    
 # just make dataframe rather than tbl..            
-Residual.monthly_234201B = as.data.frame(Residual.monthly_234201B) 
+Residual.monthly = as.data.frame(Residual.monthly) 
               
 # If number of days with residuals in a month is less than 28, remove by setting month residual to NA.
-Residual.monthly_234201B$residual[which(Residual.monthly_234201B$residual.count <28)] = NA
+Residual.monthly$residual[which(Residual.monthly$residual.count <28)] = NA
 
 ```
 
@@ -92,9 +92,9 @@ This builds a one and two state monthly model to evaluate the residuals of the q
 
 ## Build model with one-stata
 model.monthly.1 = build(input.data = data.frame(
-                        year = Residual.monthly_234201B$year,
-                        month = Residual.monthly_234201B$month,
-                        dep.variable = Residual.monthly_234201B$residual),
+                        year = Residual.monthly$year,
+                        month = Residual.monthly$month,
+                        dep.variable = Residual.monthly$residual),
                 data.transform = 'none',
                 parameters = c('a0','std.a0'),
                 state.shift.parameters = c('a0','std.a0'),
@@ -104,9 +104,9 @@ model.monthly.1 = build(input.data = data.frame(
                 
 # Build model with two-states
 model.monthly.2 = build(input.data = data.frame(
-                        year = Residual.monthly_234201B$year,
-                        month = Residual.monthly_234201B$month,
-                        dep.variable = Residual.monthly_234201B$residual),
+                        year = Residual.monthly$year,
+                        month = Residual.monthly$month,
+                        dep.variable = Residual.monthly$residual),
                 data.transform = 'none',
                 parameters = c('a0','std.a0'),
                 state.shift.parameters = c('a0','std.a0'),
