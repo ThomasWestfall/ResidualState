@@ -6,9 +6,9 @@ _ResidualState_ is a forked R-package (from [hydroState](https://peterson-tim-j.
 Westfall, T. G., Peterson, T. J., Lintern, A. & Western, A. W. (in review), ‘Fresher streams after a prolonged drought in Victoria, Australia', Water Resources Research
 
 
-The figure is an example of the results below. At times, the C-Q model over-predicts suggesting observed stream salinity is "fresher" than expected, and at other times, under-predicts suggesting observed stream salinity is "saltier" than expected. 
+Below is a conceptual figure to understand how the residuals inform change in stream salinity. At times, the C-Q model over-predicts suggesting observed stream salinity is "fresher" than expected, and at other times, under-predicts suggesting observed stream salinity is "saltier" than expected. Through evaluating this change over time, patterns in the residuals may be observed and indicate systematic change (i.e., 'freshening' or 'salting') due to a catchment process besides streamflow. 
 
-![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.state.png){width=100%}
+![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.states.diagram.png){width=100%}
 
 ### Install ResidualState and add a few additional R-packages
 ```r
