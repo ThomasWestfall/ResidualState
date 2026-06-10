@@ -1,6 +1,6 @@
 # ResidualState
 
-_ResidualState_ is a forked R-package (from [hydroState](https://peterson-tim-j.github.io/HydroState/)) that identifies statistically significant systematic patterns in residual time series. The package was developed to objectively identify change in water quality concentration, independent of streamflow, at multiple time scales such as monthly and daily. This package can be used for any residual time series; however, the example below is from identifying shifts in residuals of the quick-slow Hubbard Brook C-Q model. This C-Q model performs well at explaining the temporal variability of daily salinity concentrations (electrical conductivity) as a function of streamflow across multiple decades ([Westfall et al. 2025](https://doi.org/10.1029/2024WR039103)). The calibration of this C-Q model is located within the [CQ2 R-package](https://github.com/ThomasWestfall/CQ2). In certain periods of time, the C-Q model over-predicts and under-predicts the observed concentration, and this informs when the observed concentration is lower or higher than what could be explained by the C-Q model. Effectively, this is the change in observed concentration not explained by change in streamflow, and this indicates the change in concentration must be from another catchment process. The timing of when this change occurs is important for appropriately investigating and attributing the change in concentration to another process. That is the purpose of _ResidualState_. This methodology has been utilized to identify how hydrological processes are changing during prolonged multi-year droughts. Details of the methodology and application are within a manuscript under review:
+_ResidualState_ is a forked R-package (from [hydroState](https://peterson-tim-j.github.io/HydroState/)) that identifies statistically significant systematic patterns in residual time series. The package was developed to objectively identify change in water quality concentration, independent of streamflow, at multiple time scales such as monthly and daily. This package can be used for any residual time series; however, the example below identifies shifts in residuals of the quick-slow Hubbard Brook C-Q model. This C-Q model performs well at explaining the temporal variability of daily salinity concentrations (electrical conductivity) as a function of streamflow across multiple decades ([Westfall et al. 2025](https://doi.org/10.1029/2024WR039103)). The calibration of this C-Q model is located within the [CQ2 R-package](https://github.com/ThomasWestfall/CQ2). In certain periods of time, the C-Q model over-predicts and under-predicts the observed concentration, and this informs when the observed concentration is lower or higher than what could be explained by the C-Q model. Effectively, this is the change in observed concentration not explained by change in streamflow, and this indicates the change in concentration must be from another catchment process. The timing of when this change occurs is important for appropriately investigating and attributing the change in concentration to another process. That is the purpose of _ResidualState_. This methodology has been utilized to identify how hydrological processes are changing during prolonged multi-year droughts. Details of the methodology and application are within a manuscript under review:
 
 
 Westfall, T. G., Peterson, T. J., Lintern, A. & Western, A. W. (in review), ‘Fresher streams after a prolonged drought in Victoria, Australia', Water Resources Research
@@ -8,7 +8,7 @@ Westfall, T. G., Peterson, T. J., Lintern, A. & Western, A. W. (in review), ‘F
 
 Below is a conceptual figure to understand how the residuals inform change in stream salinity. At times, the C-Q model over-predicts suggesting observed stream salinity is "fresher" than expected, and at other times, under-predicts suggesting observed stream salinity is "saltier" than expected. Through evaluating this change over time, patterns in the residuals may be observed and indicate systematic change (i.e., 'freshening' or 'salting') due to a catchment process besides streamflow. 
 
-![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.states.diagram.png){width=100%}
+![Conceptual diagram to objectively find residual patterns](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.states.diagram.png){width=100%}
 
 ### Install ResidualState and add a few additional R-packages
 ```r
@@ -48,7 +48,7 @@ head(Residual.daily)
 ### Calculate residuals (if needed)
 ```r
 # Residuals in natural log space
-Residual.daily$residuals = log(Residual.daily$sim.C) - log(Residual.daily$obs.C)
+Residual.daily$residual = log(Residual.daily$sim.C) - log(Residual.daily$obs.C)
 ```
 
 ### Create monthly dataframe (if needed)
@@ -139,63 +139,91 @@ get.AIC(model.monthly.2)
 
 ## Tile plot of states over time
 For the 2-state model, the most probable sequence of states is determined using the Viterbi algorithm. Then, we assign a name to each state based on the value of their conditional mean. The 'normal' state is assigned to the state that occurs most often throughout the record. This 'normal' is relative, where the other state will either be 'low' or 'high' depending on the conditional mean of each state. 
+
 ```r
 # set the reference year to name the states
-model.monthly.2 = setInitialYear(model.monthly.2, 1993)
+model.monthly.2 = setInitialYear(model.monthly.2, 1993, ResidualState.names = TRUE)
 
 # plot grid plot.. 
 plot(model.monthly.2, state.grid = TRUE)
 
 ```
-This produces a grid plot with the states shown over time. Given this is for a residual time series analysis, the states indicated where the C-Q model overestimated and underestimated observations. The 'low' state indicates where residuals are lower (more negative) than what the C-Q model estimated, so an under estimation. The 'normal' state indicates where residuals are 'higher' than what the C-Q model estimated, so an over estimation. This grid plot can be re-plotted to reflect a more informative meaning of these residual states.
+This produces a grid plot with the states shown over time. Given this is for a residual time series analysis, the states indicated where the C-Q model overestimated and underestimated observations. The 'saltier' state indicates where residuals are lower (more negative) than what the C-Q model estimated, so an under estimation. The 'fresher' state indicates where residuals are 'higher' than what the C-Q model estimated, so an over estimation. Alternatively, to return state names ('low','normal','high'), set the ResidualState.name to FALSE and re-plot (i.e. setInitialYear(model.monthly.2, 1993, ResidualState.names = FALSE)). 
 
-![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/grid.plot.png){width=100%}
+![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.state.png){width=100%}
 
-## Tile plot of saltier and fresher states over time
-Since the C-Q model explained stream salinity (EC) concentration as a function of streamflow, the residuals represent where stream salinity (EC) concentration is lower or higher, independent of streamflow. The state names can then be conveniently renamed to "fresher" to indicate when the stream is "fresher" (less salty) than expected and "saltier" (more salty) than expected for a given streamflow.
-For this example: "Normal" = "Fresher" and "Low" = "Saltier"
 
+# Daily residual state analysis 
+This builds a one and two state daily model to evaluate the residuals of the quick-slow C-Q model. Set the dependent variable 'dep.variable' to equal the residual time series. The daily model is similarly a function the conditional mean, 'a0', and standard deviation, 'std.a0', but there is an additional option to include a standard deviation term, 'std.a1', that explains how streamflow affects the variance in model error. In other words, on a daily time-step, heterodicticy may occur between streamflow and the observed residuals of the quick-slow C-Q model. Including this state-dependent, flow-dependent, standard deviation effectively removes the likelihood that state shifts represent correlations with high and low streamflows. Note, this requires includeing streamflow (mm) as an independent variable. 
 ```r
-# export states
-model.states = get.states(model.monthly.2)
 
-## rename state names, colors, then match for plotting
-model.states[which(model.states['State Name'] == "Normal"),'State Name'] = "Fresher"
-model.states[which(model.states['State Name'] == "Low"),'State Name'] = "Saltier"
+## Build model with one-state at daily
+model.daily.1 = build(input.data = data.frame(
+                        year = Residual.daily$year,
+                        month = Residual.daily$month,
+                        dep.variable = Residual.daily$residual,
+                        ind.variable = Residual.daily$flow),
+                data.transform = 'none',
+                parameters = c('a0','std.a0','std.a1'),
+                state.shift.parameters = c('a0','std.a0','std.a1'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,1,1))
+                
+# Build model with two-states
+model.daily.2 = build(input.data = data.frame(
+                        year = Residual.daily$year,
+                        month = Residual.daily$month,
+                        dep.variable = Residual.daily$residual,
+                        ind.variable = Residual.daily$flow),
+                data.transform = 'none',
+                parameters = c('a0','std.a0','std.a1'),
+                state.shift.parameters = c('a0','std.a0','std.a1'),
+                error.distribution = 'truc.normal',
+                flickering = FALSE,
+                transition.graph = matrix(TRUE,2,2))
+```
 
-#colours
-state.colours = c("#af8dc3","#762a83")
+## Fit both daily models
+```r
+model.daily.1 = fit.hydroState(model.daily.1, pop.size.perParameter = 10, max.generations = 500)
 
-# match 
-state.match <- setNames(
-                  state.colours,
-                  c("Fresher","Saltier")
-                )
+# Note, 2-state daily model may take 5-15 minutes depending on operating system 
+model.daily.2 = fit.hydroState(model.daily.2, pop.size.perParameter = 10, max.generations = 500)
 
-# add additional date columns for plotting
-model.states$date = as.Date(ISOdate(model.states$Year, model.states$Month,1))
-model.states$pairdate =  format(model.states$date, format="%m")
-model.states$Year = as.numeric(model.states$Year)
+```
+## Compare 1-state and 2-state models
 
-# plot grid plot with renamed states
-ggplot(model.states, aes(x = pairdate, y = Year, fill = `State Name`)) +
-              geom_tile() +
-              scale_fill_manual(values = state.match, na.value = "grey95") +
-              scale_x_discrete(expand = c(0,0),
-                               breaks =c("01","02","03","04","05","06","07","08","09","10","11","12"),
-                               labels = c("J","F","M","A","M","J","J","A","S","O","N","D")) +
-              scale_y_continuous(breaks = seq(min(model.states$Year[model.states$Year %% 10 == 0]), max(model.states$Year), by = 10),) +
-              labs(x = "Month", y = "Year", fill = "state") +
-              theme(panel.grid = element_blank(),
-                    panel.background = element_rect(fill = "white"),
-                    panel.border = element_rect(fill = "transparent", color = "black"),
-                    axis.text = element_text(size = 14, color = "black"),
-                    axis.title = element_text(size = 16, color = "black"),
-                    legend.text = element_text(size = 14, color = "black"),
-                    legend.position = "right",
-                    legend.justification = "top",
-                    legend.key = element_rect(colour = "black", linewidth = 1))
+### Is the 2-state model acceptable?
+The 2-state model can only be accepted when the negative log-likelihood is lower than the 1-state model. 
+```r
+model.daily.1@calibration.results$bestval
+#> [1] -275.85
+
+model.daily.2@calibration.results$bestval
+#> [1] -1967.468
+
+```
+(i.e., -1967.468 < -275.85, so we can accept the 2-state model is best at explaining the reality of the system)
+
+### Is there sufficient evidence for the 2-state model?
+The AIC of the 2-state model should be less than the 1-state model. 
+```r
+get.AIC(model.daily.1)
+#> [1] -545.7
+
+get.AIC(model.daily.2)
+#> [1] -3916.935
+```
+(i.e., -3916.935 < -545.7, so there is sufficient evidence for the 2-state model)
+
+## Tile plot of daily states over time
+```r
+# set the reference year to name the states
+model.monthly.2 = setInitialYear(model.daily.2, 1993, ResidualState.names = TRUE)
+
+# plot grid plot.. 
+plot(model.daily.2, state.grid = TRUE)
 
 ```
 
-![Grid plot of monthly residual states](https://github.com/ThomasWestfall/ResidualState/blob/master/man/figures/residual.state.png){width=100%}

@@ -1467,6 +1467,7 @@ get.residuals <- function(model){
 #'
 #' @param model fitted hydroState model object.
 #' @param initial.year integer with year (YYYY). Default is first year in input.data.
+#' @param ResidualState.names TRUE/FALSE. Default is TRUE that provides "ResidualState" state names as "Fresher" and "Saltier". FALSE sets names as "hydroState" defaults ("Low","Normal", "High")
 #'
 #' @return
 #' A fitted hydroState model object with state names for each time-step ready for \code{plot}
@@ -1487,14 +1488,32 @@ get.residuals <- function(model){
 #'
 
 
-setInitialYear <- function(model, initial.year){ #make go to first year of dataframe
+setInitialYear <- function(model, initial.year, ResidualState.names){ #make go to first year of dataframe
 
 
   #set state names
   if(is.null(initial.year)){
     stop("Please provide an initial.year to set the state names")
   }
-  return(setStateNames(model, initial.year))
+
+
+  model = setStateNames(model, initial.year)
+
+  if(is.null(ResidualState.names)){
+    ResidualState.names == FALSE
+  }else{
+
+    if("Low" %in% model@state.labels){
+      model@state.labels[which(model@state.labels == "Low")] = "Saltier"
+      model@state.labels[which(model@state.labels == "Normal")] = "Fresher"
+    }
+    if("High" %in% model@state.labels){
+      model@state.labels[which(model@state.labels == "High")] = "Fresher"
+      model@state.labels[which(model@state.labels == "Normal")] = "Saltier"
+    }
+  }
+
+  return(model)
 
 
 }

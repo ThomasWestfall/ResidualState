@@ -722,6 +722,8 @@ setMethod(f="setStateNames",signature=c("hydroState","numeric"),definition=funct
     }
   }
 
+
+
   return(.Object)
 }
 )
@@ -1001,8 +1003,17 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 state.est[[i]] <- as.matrix(state.est[[i]][filt,], ncol=nStates)
               }
 
-              # Keep the state.ext for the 'Normal' flow state.
-              ind.stateNames.normal <- which(.Object@state.labels=='Normal')
+              # Keep the state.ext for the 'Normal' flow state. (unless Fresher/Saltier, then base normal off max occurance)
+              if(!('Normal' %in% .Object@state.labels)){
+
+                viterbiPath.count = c(length(viterbiPath[which(viterbiPath == 1)]), length(viterbiPath[which(viterbiPath == 2)]))
+
+                ind.stateNames.normal <- which.max(viterbiPath.count)
+
+              }else{
+                ind.stateNames.normal <- which(.Object@state.labels=='Normal')
+              }
+
               state.est.normal <- matrix(0, nQhat,3)
               for (i in 1:3) {
                 for (j in 1:nQhat) {
@@ -1104,6 +1115,23 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
               # Define colours for the states (derived from command: brewer.pal(5,"Spectral"))
               state.colours = rep("grey",nStates)
+
+              if(!('Normal' %in%.Object@state.labels)){
+                if (length(.Object@state.labels)==nStates) {
+                  state.colours.all = c("#af8dc3","#762a83")
+
+                  for ( i in 1:nStates) {
+                    if (.Object@state.labels[i]=='Fresher')
+                      state.colours[i] = state.colours.all[1]
+
+                    if (.Object@state.labels[i]=='Saltier')
+                      state.colours[i] = state.colours.all[2]
+
+                  }
+                }
+
+              }else{
+
               if (length(.Object@state.labels)==nStates) {
                 state.colours.all = c("#D7191C","#FDAE61", "#ABDDA4",'#7c9fb6',"#496c83")
                 for ( i in 1:nStates) {
@@ -1123,6 +1151,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                     state.colours[i] = state.colours.all[5]
                 }
 
+                }
               }
 
               # Derive a matrix for the start and end of each bar for the plotting of the range in the percentiles
