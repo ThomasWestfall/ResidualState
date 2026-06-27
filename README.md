@@ -1,10 +1,8 @@
 # ResidualState
 
-_ResidualState_ is a forked R-package (from [hydroState](https://peterson-tim-j.github.io/HydroState/)) that identifies statistically significant systematic patterns in residual time series. The package was developed to objectively identify change in water quality concentration, independent of streamflow, at multiple time scales such as monthly and daily. This package can be used for any residual time series; however, the example below identifies shifts in residuals of the quick-slow Hubbard Brook C-Q model. This C-Q model performs well at explaining the temporal variability of daily salinity concentrations (electrical conductivity) as a function of streamflow across multiple decades ([Westfall et al. 2025](https://doi.org/10.1029/2024WR039103)). The calibration of this C-Q model is located within the [CQ2 R-package](https://github.com/ThomasWestfall/CQ2). In certain periods of time, the C-Q model over-predicts and under-predicts the observed concentration, and this informs when the observed concentration is lower or higher than what could be explained by the C-Q model. Effectively, this is the change in observed concentration not explained by change in streamflow, and this indicates the change in concentration must be from another catchment process. The timing of when this change occurs is important for appropriately investigating and attributing the change in concentration to another process. That is the purpose of _ResidualState_. This methodology has been utilized to identify how hydrological processes are changing during prolonged multi-year droughts. Details of the methodology and application are within a manuscript under review:
+_ResidualState_ is a forked R-package (from [hydroState](https://peterson-tim-j.github.io/HydroState/)) that identifies statistically significant systematic patterns in residual time series. The package was developed to objectively identify change in water quality concentration, independent of streamflow, at multiple time scales such as monthly and daily. This package can be used for any residual time series; however, the example below identifies shifts in residuals of the quick-slow Hubbard Brook C-Q model. This C-Q model performs well at explaining the temporal variability of daily salinity concentrations (electrical conductivity) as a function of streamflow across multiple decades ([Westfall et al. 2025](https://doi.org/10.1029/2024WR039103)). The calibration of this C-Q model is located within the [CQ2 R-package](https://github.com/ThomasWestfall/CQ2). In certain periods of time, the C-Q model over-predicts and under-predicts the observed concentration, and this informs when the observed concentration is lower or higher than what could be explained by the C-Q model. Effectively, this is the change in observed concentration not explained by change in streamflow, and this indicates the change in concentration must be from another catchment process. The timing of when this change occurs is important for appropriately investigating and attributing the change in concentration to another process. That is the purpose of _ResidualState_. This methodology has been utilized to identify how hydrological processes are changing during prolonged multi-year droughts. Details of the methodology and application are within the following publication:
 
-
-Westfall, T. G., Peterson, T. J., Lintern, A. & Western, A. W. (in review), ‘Fresher streams after a prolonged drought in Victoria, Australia', Water Resources Research
-
+Westfall, T. G., Peterson, T. J., Lintern, A., & Western, A. W. (2026). Fresher Streams After a Prolonged Drought in Victoria, Australia. Water Resources Research, 62(6), e2025WR041614. https://doi.org/10.1029/2025WR041614
 
 Below is a conceptual figure to understand how the residuals inform change in stream salinity. At times, the C-Q model over-predicts suggesting observed stream salinity is "fresher" than expected, and at other times, under-predicts suggesting observed stream salinity is "saltier" than expected. Through evaluating this change over time, patterns in the residuals may be observed and indicate systematic change (i.e., 'freshening' or 'salting') due to a catchment process besides streamflow. 
 
@@ -161,6 +159,7 @@ This builds a one and two state daily model to evaluate the residuals of the qui
 model.daily.1 = build(input.data = data.frame(
                         year = Residual.daily$year,
                         month = Residual.daily$month,
+                        day = Residual.daily$day,
                         dep.variable = Residual.daily$residual,
                         ind.variable = Residual.daily$flow),
                 data.transform = 'none',
@@ -174,6 +173,7 @@ model.daily.1 = build(input.data = data.frame(
 model.daily.2 = build(input.data = data.frame(
                         year = Residual.daily$year,
                         month = Residual.daily$month,
+                        day = Residual.daily$day,
                         dep.variable = Residual.daily$residual,
                         ind.variable = Residual.daily$flow),
                 data.transform = 'none',
@@ -220,7 +220,7 @@ get.AIC(model.daily.2)
 ## Tile plot of daily states over time
 ```r
 # set the reference year to name the states
-model.monthly.2 = setInitialYear(model.daily.2, 1993, ResidualState.names = TRUE)
+model.daily.2 = setInitialYear(model.daily.2, 1993, ResidualState.names = TRUE)
 
 # plot grid plot.. 
 plot(model.daily.2, state.grid = TRUE)

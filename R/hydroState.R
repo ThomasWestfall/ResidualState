@@ -857,7 +857,12 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
               stop('The model parameters produced an INVALID MODEL.')
 
             # Handle monthly and yearly time steps
-            if (any(names(data)=="month")) {
+            if (any(names(data)=="day")) {
+              obsDates.asISO = as.Date(ISOdate(data$year,data$month,data$day))
+              obsDates = cbind(data$year,data$month,data$day)
+              obsDates.ind.variable.asISO = as.Date(ISOdate(.Object@input.data$year,.Object@input.data$month,.Object@input.data$day))
+              plot.units = 'day'
+            }else if(any(names(data)=="month")) {
               obsDates.asISO = as.Date(ISOdate(data$year,data$month,1))
               obsDates = cbind(data$year,data$month)
               obsDates.ind.variable.asISO = as.Date(ISOdate(.Object@input.data$year,.Object@input.data$month,1))
@@ -892,19 +897,26 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
             if (nStates==1) {
               viterbiPath <- rep(1,length(Qhat))
 
-              if (is.vector(obsDates)) {
-                results <- matrix(NA,length(filt), 3)
-                results[,1] <- obsDates
-                results[filt,2] <-viterbiPath[filt]
-                results[,3] <-data$dep.variable
-                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable')
-              } else {
+              if (any(names(data)=="day")){
+                results <- matrix(NA,length(filt), 5)
+                results[,1:3] <- obsDates
+                results[filt,4] <-viterbiPath[filt]
+                results[,5] <-data$dep.variable
+                colnames(results) <- c('Year','Month','Day','Viterbi State Number', 'Obs. dep.variable')
+              }else if(any(names(data)=="month")){
                 results <- matrix(NA,length(filt), 4)
                 results[,1:2] <- obsDates
                 results[filt,3] <-viterbiPath[filt]
                 results[,4] <-data$dep.variable
                 colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. dep.variable')
+              }else{
+                results <- matrix(NA,length(filt), 3)
+                results[,1] <- obsDates
+                results[filt,2] <-viterbiPath[filt]
+                results[,3] <-data$dep.variable
+                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable')
               }
+
             } else {
               # Get transition probs.
               transProbs = getTransitionProbabilities(.Object@markov.model.object)
@@ -1056,22 +1068,21 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
               state.names = .Object@state.labels
 
               # Collate returned data.
-              if (is.vector(obsDates)) {
-                results <- matrix(NA,length(filt), 10+2*nStates)
-                results[,1] <- obsDates.withNAs
-                results[filt,2] <-viterbiPath
-                results[,3] <-data.withNAs$dep.variable
-                results[filt,4:9] <- cbind(dep.viterbi.est, dep.normal.est)
-                results[filt, 10:(10+nStates-1)] = t(state.probs)
-                results[filt, (10+nStates):(10+2*nStates-1)] = t(emissionProbs[filt,])
-                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable',
-                                       paste('Viterbi dep.variable -',plot.percentiles*100,'%ile',sep=''),
-                                       paste('Normal State dep.variable -',plot.percentiles*100,'%ile',sep=''),
-                                       paste('Conditional Prob.-',.Object@state.labels,sep=''),
-                                       paste('Emission Density-',.Object@state.labels,sep=''),'State Name')
-                results[filt, 10+2*nStates] = .Object@state.labels[results[filt,'Viterbi State Number']]
-
-              } else {
+            if (any(names(data)=="day")){
+              results <- matrix(NA,length(filt), 12+2*nStates)
+              results[,1:3] <- obsDates.withNAs
+              results[filt,4] <-viterbiPath
+              results[,5] <-data.withNAs$dep.variable
+              results[filt,6:11] <- cbind(dep.viterbi.est, dep.normal.est)
+              results[filt, 12:(12+nStates-1)] = t(state.probs)
+              results[filt, (12+nStates):(12+2*nStates-1)] = t(emissionProbs[filt,])
+              colnames(results) <- c('Year','Month','Day','Viterbi State Number', 'Obs. dep.variable',
+                                     paste('Viterbi dep.variable -',plot.percentiles*100,'%ile',sep=''),
+                                     paste('Normal State dep.variable -',plot.percentiles*100,'%ile',sep=''),
+                                     paste('Conditional Prob.-',.Object@state.labels,sep=''),
+                                     paste('Emission Density-',.Object@state.labels,sep=''),'State Name')
+              results[filt, 12+2*nStates] = .Object@state.labels[results[filt,'Viterbi State Number']]
+              } else if (any(names(data)=="month")){
                 results <- matrix(NA,length(filt), 11+2*nStates)
                 results[,1:2] <- obsDates.withNAs
                 results[filt,3] <-viterbiPath
@@ -1085,26 +1096,48 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                                        paste('Conditional Prob.-',.Object@state.labels,sep=''),
                                        paste('Emission Density-',.Object@state.labels,sep=''),'State Name')
                 results[filt, 11+2*nStates] = .Object@state.labels[results[filt,'Viterbi State Number']]
+              } else{
+                  results <- matrix(NA,length(filt), 10+2*nStates)
+                  results[,1] <- obsDates.withNAs
+                  results[filt,2] <-viterbiPath
+                  results[,3] <-data.withNAs$dep.variable
+                  results[filt,4:9] <- cbind(dep.viterbi.est, dep.normal.est)
+                  results[filt, 10:(10+nStates-1)] = t(state.probs)
+                  results[filt, (10+nStates):(10+2*nStates-1)] = t(emissionProbs[filt,])
+                  colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable',
+                                         paste('Viterbi dep.variable -',plot.percentiles*100,'%ile',sep=''),
+                                         paste('Normal State dep.variable -',plot.percentiles*100,'%ile',sep=''),
+                                         paste('Conditional Prob.-',.Object@state.labels,sep=''),
+                                         paste('Emission Density-',.Object@state.labels,sep=''),'State Name')
+                  results[filt, 10+2*nStates] = .Object@state.labels[results[filt,'Viterbi State Number']]
               }
 
             } else {
               # Collate returned data.
-              if (is.vector(obsDates)) {
-                results <- matrix(NA,length(filt), 4)
-                results[,1] <- obsDates
-                results[filt,2] <-viterbiPath[filt]
-                results[,3] <-data$dep.variable
-                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable','State Name')
-                results[filt, 4] = .Object@state.labels[results['Viterbi State Number']]
-              } else {
+              if (any(names(data)=="day")) {
+                results <- matrix(NA,length(filt), 6)
+                results[,1:3] <- obsDates
+                results[filt,4] <-viterbiPath[filt]
+                results[,5] <-data$dep.variable
+                colnames(results) <- c('Year','Month','Day','Viterbi State Number', 'Obs. dep.variable','State Name')
+                results[filt, 6] = .Object@state.labels[results[filt,'Viterbi State Number']]
+              } else if (any(names(data)=="month")){
                 results <- matrix(NA,length(filt), 5)
                 results[,1:2] <- obsDates
                 results[filt,3] <-viterbiPath[filt]
                 results[,4] <-data$dep.variable
                 colnames(results) <- c('Year','Month','Viterbi State Number', 'Obs. dep.variable','State Name')
                 results[filt, 5] = .Object@state.labels[results[filt,'Viterbi State Number']]
+              } else {
+                results <- matrix(NA,length(filt), 4)
+                results[,1] <- obsDates
+                results[filt,2] <-viterbiPath[filt]
+                results[,3] <-data$dep.variable
+                colnames(results) <- c('Year','Viterbi State Number', 'Obs. dep.variable','State Name')
+                results[filt, 4] = .Object@state.labels[results['Viterbi State Number']]
               }
             }
+
 
             # Do plotting  ### filter to adjust index if water year so plotting is not messed up?
             if (do.plot) {
@@ -1194,7 +1227,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
               # message(paste("xlim = ", xlim,sep=""))
 
               # if seasonal observations, adjust plot type...
-              if(plot.units == "month"){
+              if(plot.units %in% c("month","day")){
                 if(with(rle(data$year), max(lengths)) > 4){
                   plot.type = "s"
                 }else{
@@ -1217,7 +1250,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                     # Plot obs precip
 
                     pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, .Object@input.data$ind.variable), interval = plot.units)
-                    if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                    if(plot.units  %in% c("month","day")){ #if seasonal... adjust to get plot with connecting lines..
                       if(with(rle(data$year), max(lengths)) <= 4){
                         pframe$.Object.input.data.ind.variable = zoo::na.approx(object = replace(pframe$.Object.input.data.ind.variable, is.na(pframe$.Object.input.data.ind.variable), NA), maxgap = 2)
                       }
@@ -1248,7 +1281,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
                   # Plot obs flow
                   pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data.withNAs$dep.variable), interval = plot.units)
-                  if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                  if(plot.units  %in% c("month","day")){ #if seasonal... adjust to get plot with connecting lines..
                     if(with(rle(data$year), max(lengths)) <= 4){
                       pframe$data.withNAs.dep.variable = zoo::na.approx(object = replace(pframe$data.withNAs.dep.variable, is.na(pframe$data.withNAs.dep.variable), NA), maxgap = 2)
                     }
@@ -1318,7 +1351,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
 
                   # Plot obs Qhat
                   pframe = padr::pad(data.frame(obsDates.ind.variable.asISO, data$Qhat.dep.variable), interval = plot.units)
-                  if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                  if(plot.units %in% c("month","day")){ #if seasonal... adjust to get plot with connecting lines..
                     if(with(rle(data$year), max(lengths)) <= 4){
                       pframe$data.Qhat.dep.variable = zoo::na.approx(object = replace(pframe$data.Qhat.dep.variable, is.na(pframe$data.Qhat.dep.variable), NA), maxgap = 2)
                     }
@@ -1414,7 +1447,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                   # Plot bar graph
                   # par(mar = c(4,5,0.2,5))
                   pframe = padr::pad(data.frame(obsDates.asISO, state.probs[1,]), interval = plot.units)
-                  if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                  if(plot.units %in% c("month","day")){ #if seasonal... adjust to get plot with connecting lines..
                     if(with(rle(data$year), max(lengths)) <= 4){
                       pframe$state.probs.1... = zoo::na.approx(object = replace(pframe$state.probs.1..., is.na(pframe$state.probs.1...), NA), maxgap = 2)
                     }
@@ -1424,7 +1457,7 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                   if (nStates>1) {
                     for ( i in 2:nStates) {
                       pframe = padr::pad(data.frame(obsDates.asISO, state.probs[i,]), interval = plot.units)
-                      if(plot.units == "month"){ #if seasonal... adjust to get plot with connecting lines..
+                      if(plot.units  %in% c("month","day")){ #if seasonal... adjust to get plot with connecting lines..
                         if(with(rle(data$year), max(lengths)) <= 4){
                           pframe$state.probs.i... = zoo::na.approx(object = replace(pframe$state.probs.i..., is.na(pframe$state.probs.i...), NA), maxgap = 2)
                         }
@@ -1471,7 +1504,14 @@ setMethod(f="viterbi",signature=c("hydroState","data.frame","logical","numeric",
                 #
                 results = as.data.frame(results)
                 results$date = obsDates.ind.variable.asISO
-                results$pairdate =  format(results$date, format="%m")
+
+                if(plot.units == "day"){
+                  results$pairdate =  format(results$date, format="%m-%d")
+                } else if(plot.units == "month"){
+                  results$pairdate =  format(results$date, format="%m")
+                }
+
+
                 break.label = c("01","02","03","04","05","06","07","08","09","10","11","12")
                 results$Year = as.numeric(results$Year)
 
